@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { v4 as uuidv4 } from "uuid";
+import api from "../../lib/api"; // Added api import
+
 
 type Props = {
   onLogin: (user: any) => void;
@@ -30,20 +31,42 @@ export function LoginScreen({ onLogin }: Props) {
 
     setLoading(true);
 
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 800));
+    try {
+      let response;
+      if (isSignup) {
+        // Sign Up
+        response = await api.post("/auth/signup", {
+          username,
+          displayName,
+          email,
+          password,
+        });
+      } else {
+        // Login
+        response = await api.post("/auth/login", {
+          email,
+          password,
+        });
+      }
 
-    // Mock User Object
-    const mockUser = {
-      id: uuidv4(),
-      email,
-      display_name: isSignup ? displayName : "Demo User",
-      username: isSignup ? username : "demouser",
-      role: "authenticated",
-    };
-
-    setLoading(false);
-    onLogin(mockUser);
+      // Success
+      setLoading(false);
+      
+      // Adapt backend response to frontend session shape
+      const sessionUser = {
+        id: response.data._id,
+        username: response.data.username,
+        display_name: response.data.displayName || response.data.username,
+        email: response.data.email,
+        token: response.data.token,
+      };
+      
+      onLogin(sessionUser);
+    } catch (err: any) {
+      setLoading(false);
+      const msg = err.response?.data?.message || "Something went wrong";
+      setError(msg);
+    }
   };
 
   return (
