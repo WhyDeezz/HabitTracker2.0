@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { v4 as uuidv4 } from "uuid";
 
 import { HabitsScreen } from "./components/HabitsScreen";
 import { CreateHabitScreen } from "./components/CreateHabitScreen";
@@ -8,81 +9,55 @@ import { SocialScreen } from "./components/SocialScreen";
 import { BottomNav } from "./components/BottomNav";
 import { LoginScreen } from "./components/LoginScreen";
 
-import { supabase } from "./lib/supabase";
-
 type Screen = "habits" | "create" | "profile" | "social";
 
 interface Habit {
   id: string;
   name: string;
   micro_identity: string | null;
+  habit_type: string;
   goal: number;
+  active_days: string[];
+  created_at: string;
+  completions: string[]; // List of ISO date strings (YYYY-MM-DD)
 }
+
+// Normalized for UI
+interface UIHabit {
+  id: string;
+  name: string;
+  micro_identity: string | null;
+  goal: number;
+  completed_today: boolean;
+}
+
+const STORAGE_KEY_HABITS = "habit-tracker-habits";
+const STORAGE_KEY_SESSION = "habit-tracker-session";
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState<boolean>(true);
 
   const [currentScreen, setCurrentScreen] = useState<Screen>("habits");
-  const [habits, setHabits] = useState<Habit[]>([]);
-useEffect(() => {
-  if (!session) return;
-
-  const fetchHabits = async () => {
-    const today = new Date().toISOString().slice(0, 10);
-
-    const { data, error } = await supabase
-      .from("habits")
-      .select(`
-        id,
-        name,
-        micro_identity,
-        goal,
-        habit_completions (
-          completed,
-          completion_date
-        )
-      `)
-      .eq("habit_completions.completion_date", today)
-      .order("created_at", { ascending: true });
-
-    if (error) {
-      console.error("FETCH HABITS ERROR:", error);
-      return;
-    }
-
-    const normalized = (data ?? []).map((h: any) => ({
-      id: h.id,
-      name: h.name,
-      micro_identity: h.micro_identity,
-      goal: h.goal,
-      completed_today: h.habit_completions?.[0]?.completed ?? false,
-    }));
-
-    setHabits(normalized);
-  };
-
-  fetchHabits();
-}, [session]);
-
+  const [habits, setHabits] = useState<UIHabit[]>([]);
 
   /* ---------------------------
-     AUTH SESSION (PERSISTENT)
+     AUTH SESSION (LOCAL STORAGE)
   ---------------------------- */
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setAuthLoading(false);
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => subscription.unsubscribe();
+    // Check for existing session
+    const storedSession = localStorage.getItem(STORAGE_KEY_SESSION);
+    if (storedSession) {
+      setSession(JSON.parse(storedSession));
+    }
+    setAuthLoading(false);
   }, []);
+
+  const handleLogin = (user: any) => {
+    setSession(user);
+    localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(user));
+  };
+
 
   /* ---------------------------
      LOAD HABITS
@@ -90,63 +65,78 @@ useEffect(() => {
   useEffect(() => {
     if (!session) return;
 
-    const fetchHabits = async (): Promise<void> => {
-      const { data, error } = await supabase
-        .from("habits")
-        .select("id, name, micro_identity, goal")
-        .order("created_at");
+    const loadHabits = () => {
+      const stored = localStorage.getItem(STORAGE_KEY_HABITS);
+      const allHabits: Habit[] = stored ? JSON.parse(stored) : [];
+      const today = new Date().toISOString().slice(0, 10);
 
-      if (!error && data) {
-        setHabits(data);
-      }
+      // Filter habits (could implement user-specific filtering if needed)
+      // For now, assuming single user on local device or shared
+      
+      const normalized: UIHabit[] = allHabits.map((h) => ({
+        id: h.id,
+        name: h.name,
+        micro_identity: h.micro_identity,
+        goal: h.goal,
+        completed_today: h.completions.includes(today),
+      }));
+
+      setHabits(normalized);
     };
 
-    fetchHabits();
-  }, [session]);
+    loadHabits();
+  }, [session, currentScreen]); // Reload when screen changes (e.g. back from create)
+
 
   /* ---------------------------
      CREATE HABIT
   ---------------------------- */
-const handleCreateHabit = async (habit: any): Promise<void> => {
-  if (!session) return;
+  const handleCreateHabit = async (habitData: any): Promise<void> => {
+    // New Habit Object
+    const newHabit: Habit = {
+      id: uuidv4(),
+      name: habitData.name,
+      micro_identity: habitData.microIdentity,
+      habit_type: habitData.type,
+      goal: habitData.goal,
+      active_days: habitData.days,
+      created_at: new Date().toISOString(),
+      completions: [],
+    };
 
-  const { data, error } = await supabase
-    .from("habits")
-    .insert({
-      user_id: session.user.id,
-      name: habit.name,
-      micro_identity: habit.microIdentity,
-      habit_type: habit.type,
-      goal: habit.goal,
-      active_days: habit.days, 
-    })
-    .select()
-    .single();
+    // Save to Local Storage
+    const stored = localStorage.getItem(STORAGE_KEY_HABITS);
+    const allHabits: Habit[] = stored ? JSON.parse(stored) : [];
+    allHabits.push(newHabit);
+    localStorage.setItem(STORAGE_KEY_HABITS, JSON.stringify(allHabits));
 
-  if (error) {
-    console.error("Create habit failed:", error);
-    return;
-  }
-
-  setHabits((prev) => [...prev, data]);
-  setCurrentScreen("habits");
-};
+    setCurrentScreen("habits");
+  };
 
 
   /* ---------------------------
      COMPLETE HABIT (TODAY)
   ---------------------------- */
   const handleCompleteHabit = async (habitId: string): Promise<void> => {
-    if (!session) return;
-
     const today: string = new Date().toISOString().slice(0, 10);
+    
+    const stored = localStorage.getItem(STORAGE_KEY_HABITS);
+    let allHabits: Habit[] = stored ? JSON.parse(stored) : [];
 
-    await supabase.from("habit_completions").upsert({
-      habit_id: habitId,
-      user_id: session.user.id,
-      completion_date: today,
-      completed: true,
+    allHabits = allHabits.map(h => {
+        if (h.id === habitId) {
+            // Avoid duplicates
+            if (!h.completions.includes(today)) {
+                return { ...h, completions: [...h.completions, today] };
+            }
+        }
+        return h;
     });
+
+    localStorage.setItem(STORAGE_KEY_HABITS, JSON.stringify(allHabits));
+    
+    // Update local state immediately
+    setHabits(prev => prev.map(h => h.id === habitId ? { ...h, completed_today: true } : h));
   };
 
   /* ---------------------------
@@ -161,7 +151,7 @@ const handleCreateHabit = async (habit: any): Promise<void> => {
   }
 
   if (!session) {
-    return <LoginScreen onLogin={() => {}} />;
+    return <LoginScreen onLogin={handleLogin} />;
   }
 
   return (

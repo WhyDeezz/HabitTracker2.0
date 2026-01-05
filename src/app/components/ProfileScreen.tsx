@@ -9,7 +9,6 @@ import {
 } from "lucide-react";
 import * as Switch from "@radix-ui/react-switch";
 import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabase";
 
 type Screen = "habits" | "create" | "profile" | "social";
 
@@ -21,7 +20,11 @@ interface Profile {
   id: string;
   display_name: string;
   username: string | null;
+  email?: string;
 }
+
+const STORAGE_KEY_SESSION = "habit-tracker-session";
+const STORAGE_KEY_HABITS = "habit-tracker-habits";
 
 export function ProfileScreen({ onNavigate }: ProfileScreenProps) {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -30,64 +33,39 @@ export function ProfileScreen({ onNavigate }: ProfileScreenProps) {
     useState<boolean>(true);
 
   /* ---------------------------
-     LOAD PROFILE + STREAK
+     LOAD PROFILE + STREAK (MOCK)
   ---------------------------- */
   useEffect(() => {
-    const loadProfile = async (): Promise<void> => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+    // 1. Load User Session
+    const storedSession = localStorage.getItem(STORAGE_KEY_SESSION);
+    if (storedSession) {
+      setProfile(JSON.parse(storedSession));
+    }
 
-      if (!user) return;
-
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("id, display_name, username")
-        .eq("id", user.id)
-        .single();
-
-      if (profileData) {
-        setProfile(profileData);
-      }
-
-      const { data: streakData } = await supabase
-        .from("streaks")
-        .select("current_streak")
-        .eq("user_id", user.id)
-        .single();
-
-      if (streakData) {
-        setStreak(streakData.current_streak);
-      }
-    };
-
-    loadProfile();
+    // 2. Calculate Mock Streak (Simple logic: if verified active)
+    // For a real app, calculate based on completions.
+    setStreak(3); 
   }, []);
 
   /* ---------------------------
      LOGOUT
   ---------------------------- */
-  const handleLogout = async (): Promise<void> => {
-    await supabase.auth.signOut();
+  const handleLogout = (): void => {
+    localStorage.removeItem(STORAGE_KEY_SESSION);
+    window.location.reload(); // Simple reload to reset state/auth guard
   };
 
   /* ---------------------------
-     DELETE ACCOUNT (IRREVERSIBLE)
+     DELETE ACCOUNT
   ---------------------------- */
-  const handleDeleteAccount = async (): Promise<void> => {
+  const handleDeleteAccount = (): void => {
     const confirmed = window.confirm(
-      "This will permanently delete your account and all data. Continue?"
+      "This will permanently delete your local data. Continue?"
     );
     if (!confirmed) return;
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) return;
-
-    await supabase.from("profiles").delete().eq("id", user.id);
-    await supabase.auth.signOut();
+    localStorage.clear();
+    window.location.reload();
   };
 
   if (!profile) return null;
@@ -119,7 +97,7 @@ export function ProfileScreen({ onNavigate }: ProfileScreenProps) {
             {profile.display_name}
           </h2>
           <p className="text-[#8a7a6e]">
-            @{profile.username ?? profile.display_name.toLowerCase()}
+            @{profile.username ?? "user"}
           </p>
         </div>
 
@@ -193,14 +171,14 @@ export function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                 <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
                   <Trash2 size={20} className="text-red-500" />
                 </div>
-                <span className="text-red-500">Delete account</span>
+                <span className="text-red-500">Delete data</span>
               </div>
             </button>
           </div>
         </div>
 
         <div className="text-center mt-8">
-          <p className="text-xs text-[#8a7a6e]">Accountability Board v1.0.6</p>
+          <p className="text-xs text-[#8a7a6e]">Accountability Board v1.0.6 (Local)</p>
         </div>
       </div>
     </div>

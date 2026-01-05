@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { ChevronLeft, Flame, Plus } from "lucide-react";
-import { supabase } from "../lib/supabase";
 
 type Screen = "habits" | "create" | "profile" | "social";
 
@@ -17,109 +16,54 @@ interface Friend {
   totalCount: number;
 }
 
+const STORAGE_KEY_SESSION = "habit-tracker-session";
+
 export function SocialScreen({ onNavigate }: SocialScreenProps) {
   const [currentUser, setCurrentUser] = useState<Friend | null>(null);
   const [friends, setFriends] = useState<Friend[]>([]);
 
-  const today: string = new Date().toISOString().slice(0, 10);
 
   useEffect(() => {
-    const loadSocialData = async (): Promise<void> => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+    // 1. Get Current User Data (Mock stats for now)
+    const storedSession = localStorage.getItem(STORAGE_KEY_SESSION);
+    const user = storedSession ? JSON.parse(storedSession) : { id: "guest", display_name: "Guest" };
 
-      if (!user) return;
+    setCurrentUser({
+      id: user.id || "guest",
+      name: "You",
+      completedCount: 3,
+      totalCount: 5,
+      progress: 60,
+      status: "progress",
+    });
 
-      /* ---------------------------
-         CURRENT USER
-      ---------------------------- */
-      const { data: myHabits } = await supabase
-        .from("habits")
-        .select("id")
-        .eq("user_id", user.id);
-
-      const { data: myCompletions } = await supabase
-        .from("habit_completions")
-        .select("habit_id")
-        .eq("user_id", user.id)
-        .eq("completion_date", today)
-        .eq("completed", true);
-
-      const total: number = myHabits?.length ?? 0;
-      const completed: number = myCompletions?.length ?? 0;
-
-      setCurrentUser({
-        id: user.id,
-        name: "You",
-        completedCount: completed,
-        totalCount: total,
-        progress: total ? Math.round((completed / total) * 100) : 0,
-        status:
-          completed === total && total > 0
-            ? "done"
-            : completed > 0
-            ? "progress"
-            : "not-started",
-      });
-
-      /* ---------------------------
-         FRIENDS
-      ---------------------------- */
-      const { data: friendLinks } = await supabase
-        .from("friends")
-        .select("friend_id")
-        .eq("user_id", user.id);
-
-      if (!friendLinks) return;
-
-      const friendData: Friend[] = [];
-
-      for (const link of friendLinks) {
-        const friendId: string = link.friend_id;
-
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("display_name")
-          .eq("id", friendId)
-          .single();
-
-        const { data: habits } = await supabase
-          .from("habits")
-          .select("id")
-          .eq("user_id", friendId);
-
-        const { data: completions } = await supabase
-          .from("habit_completions")
-          .select("habit_id")
-          .eq("user_id", friendId)
-          .eq("completion_date", today)
-          .eq("completed", true);
-
-        const totalHabits: number = habits?.length ?? 0;
-        const completedHabits: number = completions?.length ?? 0;
-
-        friendData.push({
-          id: friendId,
-          name: profile?.display_name ?? "Friend",
-          completedCount: completedHabits,
-          totalCount: totalHabits,
-          progress: totalHabits
-            ? Math.round((completedHabits / totalHabits) * 100)
-            : 0,
-          status:
-            completedHabits === totalHabits && totalHabits > 0
-              ? "done"
-              : completedHabits > 0
-              ? "progress"
-              : "not-started",
-        });
-      }
-
-      setFriends(friendData);
-    };
-
-    loadSocialData();
+    // 2. Mock Friends Data
+    setFriends([
+      {
+        id: "f1",
+        name: "Sarah W.",
+        completedCount: 5,
+        totalCount: 5,
+        progress: 100,
+        status: "done",
+      },
+      {
+        id: "f2",
+        name: "Mike Chen",
+        completedCount: 2,
+        totalCount: 4,
+        progress: 50,
+        status: "progress",
+      },
+      {
+        id: "f3",
+        name: "Alex J.",
+        completedCount: 0,
+        totalCount: 3,
+        progress: 0,
+        status: "not-started",
+      },
+    ]);
   }, []);
 
   if (!currentUser) return null;
