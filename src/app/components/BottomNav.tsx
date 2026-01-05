@@ -1,4 +1,4 @@
-import { Flame, Users, ChartBar } from 'lucide-react';
+import { Flame, Users } from 'lucide-react';
 
 type Screen = 'habits' | 'create' | 'profile' | 'social';
 
@@ -29,16 +29,6 @@ export function BottomNav({ currentScreen, onNavigate }: BottomNavProps) {
         >
           <Users size={24} />
           <span className="text-xs">Social</span>
-        </button>
-        
-        <button
-          onClick={() => onNavigate('profile')}
-          className={`flex flex-col items-center gap-1 px-6 py-2 transition-colors ${
-            currentScreen === 'profile' ? 'text-[#ff5722]' : 'text-[#8a7a6e]'
-          }`}
-        >
-          <ChartBar size={24} />
-          <span className="text-xs">Stats</span>
         </button>
       </div>
     </nav>

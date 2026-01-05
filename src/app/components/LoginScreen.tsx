@@ -31,7 +31,7 @@ export function LoginScreen({ onLogin }: Props) {
             token
         });
         // Clear URL
-        window.history.replaceState({}, document.title, window.location.pathname);
+        window.history.replaceState({}, document.title, "/");
     }
   }, [onLogin]);
 

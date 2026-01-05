@@ -1,7 +1,7 @@
 import { Flame, Settings, Plus } from "lucide-react";
 import { motion } from "motion/react";
 import { HabitCard } from "./HabitCard";
-import { MentalModelCard } from "./MentalModelCard";
+import { useMemo } from "react";
 
 export interface Habit {
   id: string;
@@ -10,6 +10,33 @@ export interface Habit {
   goal: number;
   completed_today: boolean;
 }
+
+interface Quote {
+  text: string;
+  category: string;
+}
+
+const MENTAL_MODELS: Quote[] = [
+  // Category A: The "Elastic" mindset
+  { text: "Bad day? Just do the Mini version. One pushup is better than zero.", category: "Elastic Mindset" },
+  { text: "Don't break the chain. If you can't run a mile, walk a block.", category: "Elastic Mindset" },
+  { text: "Focus on the identity, not the outcome. Today, you are a person who doesn't miss.", category: "Elastic Mindset" },
+  { text: "A 10-minute workout beats the 60-minute workout you didn't do.", category: "Elastic Mindset" },
+  
+  // Category B: The "Two-Day Rule"
+  { text: "Missing once is an accident. Missing twice is the start of a new habit. Don't miss today.", category: "Recovery" },
+  { text: "Your streak isn't a number; it's a momentum. If it falls to 0, pick it up immediately.", category: "Recovery" },
+  { text: "Life happens. Use your Streak Freeze wisely, but never miss two days in a row.", category: "Recovery" },
+  
+  // Category C: Habit Stacking (Quote 8 removed as requested)
+  { text: "Design your environment. Make the cue for your habit impossible to miss.", category: "Habit Stacking" },
+  { text: "Small habits + Consistency + Time = Radical Transformation.", category: "Habit Stacking" },
+  
+  // Category D: Social Accountability
+  { text: "Your friends are watching. Show them what showing up looks like.", category: "Social Accountability" },
+  { text: "Accountability is the shortcut to willpower. Check in so they don't have to nudge you.", category: "Social Accountability" },
+  { text: "A shared habit is twice as likely to stick. Invite a 'Streak Partner' today.", category: "Social Accountability" },
+];
 
 interface HabitsScreenProps {
   habits: Habit[];
@@ -22,6 +49,12 @@ export function HabitsScreen({
   onCompleteHabit,
   onNavigate,
 }: HabitsScreenProps) {
+  // Select a random quote only once on mount
+  const currentQuote = useMemo(() => {
+    const randomIndex = Math.floor(Math.random() * MENTAL_MODELS.length);
+    return MENTAL_MODELS[randomIndex];
+  }, []);
+
   const streakDays = 12; // replace later with real streak logic
   const hasIncompleteHabits = habits.some((h) => !h.completed_today);
   const remainingCount = habits.filter((h) => !h.completed_today).length;
@@ -100,16 +133,22 @@ export function HabitsScreen({
       {/* Mental Models */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Mental Models</h2>
-          <button className="text-sm text-[#ff5722]">View All</button>
+          <h2 className="text-lg font-semibold">Daily Wisdom</h2>
         </div>
-        <div className="flex gap-3 overflow-x-auto pb-2 -mx-5 px-5">
-          <MentalModelCard
-            image="https://images.unsplash.com/photo-1547476547-82f7fbe9988f"
-            duration="2 min read"
-            title="Identity Shifting"
-            subtitle="Become the person who does the habit"
-          />
+        
+        <div className="bg-gradient-to-br from-orange-500/20 to-[#2a1f19] rounded-2xl p-6 border border-orange-500/30 relative overflow-hidden shadow-lg shadow-orange-900/20">
+          <div className="absolute top-0 right-0 p-4 opacity-20">
+            <Flame size={48} className="text-orange-500" />
+          </div>
+          
+          <div className="relative z-10">
+             <span className="inline-block px-3 py-1 bg-orange-500/20 text-orange-400 text-xs font-medium rounded-full mb-3 border border-orange-500/20">
+              {currentQuote.category}
+            </span>
+            <p className="text-xl font-medium leading-relaxed mb-2 text-white">
+              "{currentQuote.text}"
+            </p>
+          </div>
         </div>
       </div>
     </div>
