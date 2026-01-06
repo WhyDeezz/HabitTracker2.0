@@ -20,6 +20,9 @@ interface Habit {
   active_days: string[];
   created_at: string;
   completions: string[]; // List of ISO date strings (YYYY-MM-DD)
+  visibility?: 'public' | 'private';
+  reminder_time?: string | null;
+  duration: number; // Duration in days
 }
 
 // Normalized for UI
@@ -103,6 +106,8 @@ export default function App() {
       reminder_time: habitData.reminderEnabled ? habitData.reminderTime : null,
       created_at: new Date().toISOString(),
       completions: [],
+      visibility: habitData.visibility,
+      duration: habitData.duration,
     };
 
     // Save to Local Storage

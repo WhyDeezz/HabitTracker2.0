@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { X, User, Clock } from 'lucide-react';
+import { X, User, Clock, Globe, Lock, Minus, Plus } from 'lucide-react';
 import * as Switch from '@radix-ui/react-switch';
 
 interface CreateHabitScreenProps {
@@ -13,7 +13,9 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
   const [habitName, setHabitName] = useState('');
   const [selectedDays, setSelectedDays] = useState<number[]>([1, 2, 3, 4, 5, 6, 7]);
   const [reminderEnabled, setReminderEnabled] = useState(false);
-  const [reminderTime, setReminderTime] = useState('09:00'); // Added missing state
+  const [reminderTime, setReminderTime] = useState('09:00');
+  const [visibility, setVisibility] = useState<'public' | 'private'>('public');
+  const [duration, setDuration] = useState<number>(21);
   const timeInputRef = useRef<HTMLInputElement>(null);
 
   const days = [
@@ -41,7 +43,9 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
       type: habitType,
       days: selectedDays,
       reminderEnabled,
-      reminderTime, // Added
+      reminderTime,
+      visibility,
+      duration,
       progress: 0,
       goal: 1,
     });
@@ -122,6 +126,41 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
           />
         </div>
 
+        {/* Visibility */}
+        <div>
+          <label className="block text-sm text-[#8a7a6e] mb-2 uppercase tracking-wide">
+            Visibility
+          </label>
+          <div className="bg-[#2a1f19] p-1 rounded-2xl flex relative">
+              {/* Sliding background could be added here for animation, but simple state switching works for now */}
+             <button
+              onClick={() => setVisibility('public')}
+              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl transition-all duration-300 ${
+                visibility === 'public'
+                  ? 'bg-[#3d2f26] text-[#ff5722] shadow-sm'
+                  : 'text-[#8a7a6e]'
+              }`}
+            >
+              <Globe size={18} />
+              <span className="font-medium">Public</span>
+            </button>
+            <button
+              onClick={() => setVisibility('private')}
+              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl transition-all duration-300 ${
+                visibility === 'private'
+                  ? 'bg-[#3d2f26] text-[#ff5722] shadow-sm'
+                  : 'text-[#8a7a6e]'
+              }`}
+            >
+              <Lock size={18} />
+              <span className="font-medium">Private</span>
+            </button>
+          </div>
+          <p className="text-xs text-[#8a7a6e] mt-2 text-center">
+            Public habits are visible to your friends for accountability.
+          </p>
+        </div>
+
         {/* Frequency */}
         <div>
           <div className="flex items-center justify-between mb-3">
@@ -150,6 +189,65 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Duration */}
+        <div>
+           <label className="block text-sm text-[#8a7a6e] mb-3 uppercase tracking-wide">
+            Duration
+          </label>
+           <div className="bg-[#2a1f19] rounded-2xl p-6 flex flex-col items-center">
+             
+             {/* Large Input Display with Controls */}
+             <div className="flex items-center gap-6 mb-2">
+                <button
+                  onClick={() => setDuration(prev => Math.max(1, prev - 1))}
+                  className="w-10 h-10 rounded-xl bg-[#1a1410] text-[#8a7a6e] hover:text-[#ff5722] hover:bg-[#3d2f26] flex items-center justify-center transition-colors"
+                >
+                  <Minus size={18} />
+                </button>
+
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="1"
+                    value={duration}
+                    onChange={(e) => setDuration(Number(e.target.value))}
+                    className="w-32 bg-transparent text-center text-5xl font-bold text-white focus:outline-none placeholder:text-[#3d2f26]"
+                  />
+                </div>
+
+                <button
+                  onClick={() => setDuration(prev => prev + 1)}
+                  className="w-10 h-10 rounded-xl bg-[#1a1410] text-[#8a7a6e] hover:text-[#ff5722] hover:bg-[#3d2f26] flex items-center justify-center transition-colors"
+                >
+                  <Plus size={18} />
+                </button>
+             </div>
+             
+             {/* Divider & Label */}
+             <div className="w-16 h-1 bg-[#ff5722] rounded-full mb-3 opacity-80"></div>
+             <p className="text-[10px] uppercase tracking-[0.2em] text-[#8a7a6e] font-medium mb-8">
+               Days Target
+             </p>
+
+             {/* Presets */}
+             <div className="flex gap-3 w-full justify-center">
+               {[21, 48, 66].map((days) => (
+                 <button
+                   key={days}
+                   onClick={() => setDuration(days)}
+                   className={`px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-300 ${
+                     duration === days
+                       ? 'bg-[#ff5722] text-white shadow-[0_4px_12px_rgba(255,87,34,0.3)] transform scale-105'
+                       : 'bg-[#1a1410] text-[#8a7a6e] hover:bg-[#3d2f26] hover:text-white'
+                   }`}
+                 >
+                   {days} Days
+                 </button>
+               ))}
+             </div>
+           </div>
         </div>
 
         {/* Reminder */}
