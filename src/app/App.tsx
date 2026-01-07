@@ -20,6 +20,9 @@ interface Habit {
   active_days: string[];
   created_at: string;
   completions: string[]; // List of ISO date strings (YYYY-MM-DD)
+  visibility?: 'public' | 'private';
+  reminder_time?: string | null;
+  duration: number; // Duration in days
 }
 
 // Normalized for UI
@@ -58,6 +61,12 @@ export default function App() {
     localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(user));
   };
 
+  const updateSession = (updatedUser: any) => {
+    const newSession = { ...session, ...updatedUser };
+    setSession(newSession);
+    localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(newSession));
+  };
+
 
   /* ---------------------------
      LOAD HABITS
@@ -87,6 +96,22 @@ export default function App() {
     loadHabits();
   }, [session, currentScreen]); // Reload when screen changes (e.g. back from create)
 
+  /* ---------------------------
+     RELOAD SESSION (for profile updates)
+  ---------------------------- */
+  useEffect(() => {
+    // Reload session from localStorage when switching screens
+    // This ensures profile changes (like display_name) are reflected
+    const storedSession = localStorage.getItem(STORAGE_KEY_SESSION);
+    if (storedSession) {
+      const parsedSession = JSON.parse(storedSession);
+      // Only update if changed (avoid infinite loop)
+      if (JSON.stringify(parsedSession) !== JSON.stringify(session)) {
+        setSession(parsedSession);
+      }
+    }
+  }, [currentScreen]); // Reload when screen changes
+
 
   /* ---------------------------
      CREATE HABIT
@@ -103,6 +128,8 @@ export default function App() {
       reminder_time: habitData.reminderEnabled ? habitData.reminderTime : null,
       created_at: new Date().toISOString(),
       completions: [],
+      visibility: habitData.visibility,
+      duration: habitData.duration,
     };
 
     // Save to Local Storage
@@ -182,13 +209,14 @@ export default function App() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
               >
-                <HabitsScreen
-                  habits={habits}
-                  userName={session?.display_name || session?.username}
-                  onCompleteHabit={handleCompleteHabit}
-                  onDeleteHabit={handleDeleteHabit}
-                  onNavigate={setCurrentScreen}
-                />
+                  <HabitsScreen
+                    habits={habits}
+                    userName={session?.display_name || session?.username}
+                    onCompleteHabit={handleCompleteHabit}
+                    onDeleteHabit={handleDeleteHabit}
+                    onNavigate={setCurrentScreen}
+                    updateSession={updateSession}
+                  />
               </motion.div>
             )}
 

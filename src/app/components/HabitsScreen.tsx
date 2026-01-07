@@ -1,7 +1,8 @@
 import { Flame, Menu, Plus } from "lucide-react";
 import { motion } from "motion/react";
-import { HabitCard } from "./HabitCard";
-import { useMemo } from "react";
+import{ HabitCard } from "./HabitCard";
+import { useMemo, useState } from "react";
+import { ProfileScreen } from "./ProfileScreen";
 
 export interface Habit {
   id: string;
@@ -44,6 +45,7 @@ interface HabitsScreenProps {
   onCompleteHabit: (id: string) => void;
   onDeleteHabit: (id: string) => void;
   onNavigate: (screen: "habits" | "create" | "profile" | "social") => void;
+  updateSession?: (updatedUser: any) => void;
 }
 
 export function HabitsScreen({
@@ -52,6 +54,7 @@ export function HabitsScreen({
   onCompleteHabit,
   onDeleteHabit,
   onNavigate,
+  updateSession,
 }: HabitsScreenProps) {
   // Select a random quote only once on mount
   const currentQuote = useMemo(() => {
@@ -66,6 +69,8 @@ export function HabitsScreen({
   const today = new Date();
   const dayName = today.toLocaleDateString("en-US", { weekday: "long" });
   const dateString = today.toLocaleDateString("en-US", { month: "long", day: "numeric" });
+
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   return (
     <div className="px-5 pt-6 pb-28">
@@ -82,7 +87,7 @@ export function HabitsScreen({
           </div>
         </div>
         <button
-          onClick={() => onNavigate("profile")}
+          onClick={() => setShowProfileModal(true)}
           className="p-3 hover:bg-[#2a1f19] rounded-xl transition-all active:scale-95 border border-transparent hover:border-[#3d2f26]"
         >
           <Menu size={24} className="text-[#b5a79a]" />
@@ -206,11 +211,6 @@ export function HabitsScreen({
 
       {/* Mental Models */}
       <div className="mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Daily Wisdom</h2>
-          <span className="text-xl">🦉</span>
-        </div>
-        
         <div className="bg-gradient-to-br from-orange-500/10 to-[#2a1f19] rounded-2xl p-6 border border-orange-500/20 relative overflow-hidden shadow-lg shadow-black/20">
           <div className="absolute -top-4 -right-4 text-orange-500/10 rotate-12">
             <svg width="100" height="100" viewBox="0 0 24 24" fill="currentColor">
@@ -229,6 +229,16 @@ export function HabitsScreen({
           </div>
         </div>
       </div>
+
+      {/* Profile Modal */}
+      {showProfileModal && (
+        <ProfileScreen 
+          onNavigate={onNavigate}
+          isModal={true}
+          onClose={() => setShowProfileModal(false)}
+          updateSession={updateSession}
+        />
+      )}
     </div>
   );
 }

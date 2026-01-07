@@ -5,6 +5,7 @@ export interface IUser {
   username: string;
   email: string; // Fixed: Interface should have the primitive type, not the schema config
   displayName: string;
+  friendCode: string;
   password?: string; // Optional
   googleId?: string; // Optional
   createdAt: Date;
@@ -30,6 +31,12 @@ const UserSchema = new Schema<IUser>(
       required: true,
       unique: true,
       lowercase: true,
+    },
+    friendCode: {
+      type: String,
+      required: true,
+      unique: true,
+      uppercase: true,
     },
     password: {
       type: String,

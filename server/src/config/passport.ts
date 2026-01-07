@@ -2,6 +2,7 @@ import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import User from "../models/User";
 import generateToken from "../utils/generateToken";
+import { generateFriendCode } from "../utils/generateFriendCode";
 
 passport.use(
   new GoogleStrategy(
@@ -38,6 +39,7 @@ passport.use(
           email: profile.emails?.[0].value,
           googleId: profile.id,
           password: "", // No password for google users
+          friendCode: generateFriendCode(),
         });
 
         return done(null, newUser);

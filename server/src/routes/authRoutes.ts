@@ -1,5 +1,6 @@
 import express from "express";
-import { authUser, registerUser } from "../controllers/authController";
+import { authUser, registerUser, updateUserProfile } from "../controllers/authController";
+import { protect } from "../middleware/authMiddleware";
 
 import passport from "passport";
 
@@ -7,6 +8,7 @@ const router = express.Router();
 
 router.post("/signup", registerUser);
 router.post("/login", authUser);
+router.put("/profile", protect, updateUserProfile);
 
 // Google Auth
 router.get(
@@ -26,7 +28,7 @@ router.get(
      const token = require("../utils/generateToken").default(user._id.toString());
      
      // Redirect to frontend with token
-     res.redirect(`http://localhost:5173/login?token=${token}&id=${user._id}&username=${user.username}&displayName=${user.displayName}`);
+     res.redirect(`http://localhost:5173/login?token=${token}&id=${user._id}&username=${user.username}&displayName=${user.displayName}&friendCode=${user.friendCode}`);
   }
 );
 

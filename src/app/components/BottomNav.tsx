@@ -18,7 +18,7 @@ export function BottomNav({ currentScreen, onNavigate }: BottomNavProps) {
           }`}
         >
           <Flame size={24} fill={currentScreen === 'habits' ? '#ff5722' : 'none'} />
-          <span className="text-xs">Home</span>
+          <span className="text-xs">Habits</span>
         </button>
         
         <button

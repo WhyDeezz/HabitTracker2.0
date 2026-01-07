@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { X, User, Clock } from 'lucide-react';
+import { X, User, Clock, Globe, Lock, Minus, Plus, Info } from 'lucide-react';
 import * as Switch from '@radix-ui/react-switch';
 
 interface CreateHabitScreenProps {
@@ -13,7 +13,9 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
   const [habitName, setHabitName] = useState('');
   const [selectedDays, setSelectedDays] = useState<number[]>([1, 2, 3, 4, 5, 6, 7]);
   const [reminderEnabled, setReminderEnabled] = useState(false);
-  const [reminderTime, setReminderTime] = useState('09:00'); // Added missing state
+  const [reminderTime, setReminderTime] = useState('09:00');
+  const [visibility, setVisibility] = useState<'public' | 'private'>('public');
+  const [duration, setDuration] = useState<number>(21);
   const timeInputRef = useRef<HTMLInputElement>(null);
 
   const days = [
@@ -41,7 +43,9 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
       type: habitType,
       days: selectedDays,
       reminderEnabled,
-      reminderTime, // Added
+      reminderTime,
+      visibility,
+      duration,
       progress: 0,
       goal: 1,
     });
@@ -64,6 +68,32 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
       <div className="px-5 py-6 space-y-6">
         {/* Build / Break Toggle */}
         <div>
+          <div className="flex items-center gap-2 mb-3">
+            <label className="text-sm text-[#8a7a6e] uppercase tracking-wide">
+              Habit Type
+            </label>
+            <div className="group relative">
+              <Info 
+                size={16} 
+                className="text-[#8a7a6e] hover:text-[#ff5722] cursor-help transition-colors" 
+              />
+              {/* Tooltip */}
+              <div className="invisible group-hover:visible opacity-0 group-hover:opacity-100 absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 bg-[#1a1410] border border-[#3d2f26] rounded-xl p-3 shadow-lg transition-all duration-200 z-10">
+                <div className="space-y-2 text-xs">
+                  <div>
+                    <span className="font-semibold text-[#ff5722]">Build:</span>
+                    <span className="text-[#b8a89d] ml-1">Create good habits</span>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-[#8a7a6e]">Break:</span>
+                    <span className="text-[#b8a89d] ml-1">Remove bad ones</span>
+                  </div>
+                </div>
+                {/* Arrow pointing down */}
+                <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-[#3d2f26]"></div>
+              </div>
+            </div>
+          </div>
           <div className="inline-flex bg-[#2a1f19] rounded-full p-1 w-full">
             <button
               onClick={() => setHabitType('build')}
@@ -88,6 +118,20 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
           </div>
         </div>
 
+        {/* Habit Name */}
+        <div>
+          <label className="block text-sm text-[#8a7a6e] mb-2 uppercase tracking-wide">
+            Habit Name
+          </label>
+          <input
+            type="text"
+            value={habitName}
+            onChange={(e) => setHabitName(e.target.value)}
+            placeholder="Morning Run"
+            className="w-full bg-[#2a1f19] border border-[#3d2f26] rounded-xl px-4 py-3 text-white placeholder:text-[#8a7a6e] focus:outline-none focus:border-[#ff5722] transition-colors"
+          />
+        </div>
+
         {/* Micro-Identity */}
         <div>
           <label className="block text-sm text-[#8a7a6e] mb-2 uppercase tracking-wide">
@@ -108,18 +152,39 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
           </p>
         </div>
 
-        {/* Habit Name */}
+        {/* Visibility */}
         <div>
           <label className="block text-sm text-[#8a7a6e] mb-2 uppercase tracking-wide">
-            Habit Name
+            Visibility
           </label>
-          <input
-            type="text"
-            value={habitName}
-            onChange={(e) => setHabitName(e.target.value)}
-            placeholder="Morning Run"
-            className="w-full bg-[#2a1f19] border border-[#3d2f26] rounded-xl px-4 py-3 text-white placeholder:text-[#8a7a6e] focus:outline-none focus:border-[#ff5722] transition-colors"
-          />
+          <div className="bg-[#2a1f19] p-1 rounded-2xl flex relative">
+              {/* Sliding background could be added here for animation, but simple state switching works for now */}
+             <button
+              onClick={() => setVisibility('public')}
+              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl transition-all duration-300 ${
+                visibility === 'public'
+                  ? 'bg-[#3d2f26] text-[#ff5722] shadow-sm'
+                  : 'text-[#8a7a6e]'
+              }`}
+            >
+              <Globe size={18} />
+              <span className="font-medium">Public</span>
+            </button>
+            <button
+              onClick={() => setVisibility('private')}
+              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl transition-all duration-300 ${
+                visibility === 'private'
+                  ? 'bg-[#3d2f26] text-[#ff5722] shadow-sm'
+                  : 'text-[#8a7a6e]'
+              }`}
+            >
+              <Lock size={18} />
+              <span className="font-medium">Private</span>
+            </button>
+          </div>
+          <p className="text-xs text-[#8a7a6e] mt-2 text-center">
+            Public habits are visible to your friends for accountability.
+          </p>
         </div>
 
         {/* Frequency */}
@@ -150,6 +215,65 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Duration */}
+        <div>
+           <label className="block text-sm text-[#8a7a6e] mb-3 uppercase tracking-wide">
+            Duration
+          </label>
+           <div className="bg-[#2a1f19] rounded-2xl p-6 flex flex-col items-center">
+             
+             {/* Large Input Display with Controls */}
+             <div className="flex items-center gap-6 mb-2">
+                <button
+                  onClick={() => setDuration(prev => Math.max(1, prev - 1))}
+                  className="w-10 h-10 rounded-xl bg-[#1a1410] text-[#8a7a6e] hover:text-[#ff5722] hover:bg-[#3d2f26] flex items-center justify-center transition-colors"
+                >
+                  <Minus size={18} />
+                </button>
+
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="1"
+                    value={duration}
+                    onChange={(e) => setDuration(Number(e.target.value))}
+                    className="w-32 bg-transparent text-center text-5xl font-bold text-white focus:outline-none placeholder:text-[#3d2f26]"
+                  />
+                </div>
+
+                <button
+                  onClick={() => setDuration(prev => prev + 1)}
+                  className="w-10 h-10 rounded-xl bg-[#1a1410] text-[#8a7a6e] hover:text-[#ff5722] hover:bg-[#3d2f26] flex items-center justify-center transition-colors"
+                >
+                  <Plus size={18} />
+                </button>
+             </div>
+             
+             {/* Divider & Label */}
+             <div className="w-16 h-1 bg-[#ff5722] rounded-full mb-3 opacity-80"></div>
+             <p className="text-[10px] uppercase tracking-[0.2em] text-[#8a7a6e] font-medium mb-8">
+               Days Target
+             </p>
+
+             {/* Presets */}
+             <div className="flex gap-3 w-full justify-center">
+               {[21, 48, 66].map((days) => (
+                 <button
+                   key={days}
+                   onClick={() => setDuration(days)}
+                   className={`px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-300 ${
+                     duration === days
+                       ? 'bg-[#ff5722] text-white shadow-[0_4px_12px_rgba(255,87,34,0.3)] transform scale-105'
+                       : 'bg-[#1a1410] text-[#8a7a6e] hover:bg-[#3d2f26] hover:text-white'
+                   }`}
+                 >
+                   {days} Days
+                 </button>
+               ))}
+             </div>
+           </div>
         </div>
 
         {/* Reminder */}

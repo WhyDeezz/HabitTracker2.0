@@ -6,6 +6,7 @@ import {
   Trash2,
   ChevronRight,
   Pencil,
+  Check,
 } from "lucide-react";
 import * as Switch from "@radix-ui/react-switch";
 import { useEffect, useState } from "react";
@@ -14,6 +15,9 @@ type Screen = "habits" | "create" | "profile" | "social";
 
 interface ProfileScreenProps {
   onNavigate: (screen: Screen) => void;
+  isModal?: boolean;
+  onClose?: () => void;
+  updateSession?: (updatedUser: any) => void;
 }
 
 interface Profile {
@@ -21,13 +25,17 @@ interface Profile {
   display_name: string;
   username: string | null;
   email?: string;
+  token?: string;
+  friendCode?: string;
 }
 
 const STORAGE_KEY_SESSION = "habit-tracker-session";
 const STORAGE_KEY_HABITS = "habit-tracker-habits";
 
-export function ProfileScreen({ onNavigate }: ProfileScreenProps) {
+export function ProfileScreen({ onNavigate, isModal = false, onClose, updateSession }: ProfileScreenProps) {
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState("");
   const [streak, setStreak] = useState<number>(0);
   const [notificationsEnabled, setNotificationsEnabled] =
     useState<boolean>(true);
@@ -68,14 +76,75 @@ export function ProfileScreen({ onNavigate }: ProfileScreenProps) {
     window.location.reload();
   };
 
+  /* ---------------------------
+     EDIT DISPLAY NAME
+  ---------------------------- */
+  const handleStartEdit = () => {
+    if (!profile) return;
+    setEditName(profile.display_name);
+    setIsEditing(true);
+  };
+
+  const handleSaveName = async () => {
+    if (!profile || !editName.trim()) return;
+
+    try {
+      // 1. Optimistic Update (Local)
+      const updatedProfile = { ...profile, display_name: editName.trim() };
+      setProfile(updatedProfile);
+      localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(updatedProfile));
+      
+      // Update parent session explicitly if function provided
+      if (updateSession) {
+        updateSession(updatedProfile);
+      }
+
+      setIsEditing(false);
+
+      // 2. API Update (Backend)
+      if (profile.token) {
+        const res = await fetch("http://localhost:5000/api/auth/profile", {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${profile.token}`,
+            },
+            body: JSON.stringify({ displayName: editName.trim() }),
+        });
+
+        if (!res.ok) {
+            console.error("Failed to update profile on server");
+            // Optionally revert local change or show error
+        } else {
+             const data = await res.json();
+             // Update with server response to be sure (sync source of truth)
+             // We need to map server response fields to frontend Profile shape if different
+             // Server returns: { _id, username, displayName, email, token }
+             const newProfile = {
+                 ...updatedProfile,
+                 display_name: data.displayName,
+                 username: data.username,
+                 email: data.email,
+                 // Ensure we keep the token if server returns a new one or use old
+                 token: data.token || profile.token, 
+             };
+             setProfile(newProfile);
+             localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(newProfile));
+        }
+      }
+    } catch (error) {
+        console.error("Error updating profile:", error);
+    }
+  };
+
   if (!profile) return null;
 
-  return (
-    <div className="min-h-screen">
+  const profileContent = (
+    <div className={!isModal ? "min-h-screen" : ""}>
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-6">
         <button
-          onClick={() => onNavigate("habits")}
+          onClick={isModal && onClose ? onClose : () => onNavigate("habits")}
           className="p-2 hover:bg-[#2a1f19] rounded-lg transition-colors"
         >
           <ChevronLeft size={24} />
@@ -89,16 +158,46 @@ export function ProfileScreen({ onNavigate }: ProfileScreenProps) {
         <div className="flex flex-col items-center mb-6">
           <div className="relative mb-4">
             <div className="w-24 h-24 rounded-full bg-gradient-to-br from-orange-400 to-pink-500" />
-            <button className="absolute bottom-0 right-0 w-8 h-8 bg-[#ff5722] rounded-full flex items-center justify-center border-2 border-[#1a1410]">
-              <Pencil size={14} className="text-white" />
+            <button 
+              onClick={isEditing ? handleSaveName : handleStartEdit}
+              className={`absolute bottom-0 right-0 w-8 h-8 rounded-full flex items-center justify-center border-2 border-[#1a1410] transition-colors ${
+                isEditing ? "bg-green-500 hover:bg-green-600" : "bg-[#ff5722] hover:bg-[#ff6b3d]"
+              }`}
+            >
+              {isEditing ? (
+                <Check size={14} className="text-white" />
+              ) : (
+                <Pencil size={14} className="text-white" />
+              )}
             </button>
           </div>
           <h2 className="text-2xl font-bold mb-1">
-            {profile.display_name}
+            {isEditing ? (
+              <input
+                type="text"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSaveName();
+                }}
+                className="bg-transparent border-b border-[#ff5722] text-2xl font-bold text-center focus:outline-none text-white w-full"
+                autoFocus
+              />
+            ) : (
+              profile.display_name
+            )}
           </h2>
-          <p className="text-[#8a7a6e]">
+          <p className="text-[#8a7a6e] mb-2">
             @{profile.username ?? "user"}
           </p>
+          
+          {/* Friend Code */}
+          <div className="flex items-center gap-2 px-4 py-2 bg-[#2a1f19] rounded-lg border border-[#3d2f26]">
+            <span className="text-xs text-[#8a7a6e] font-mono">Friend Code:</span>
+            <span className="text-sm font-mono text-[#ff5722] font-semibold">
+              {profile.friendCode || "HABIT-XXXXXX"}
+            </span>
+          </div>
         </div>
 
         {/* Current Streak */}
@@ -152,8 +251,7 @@ export function ProfileScreen({ onNavigate }: ProfileScreenProps) {
           <div className="bg-[#2a1f19] rounded-2xl overflow-hidden divide-y divide-[#3d2f26]">
             <button
               onClick={handleLogout}
-              className="w-full flex items-center justify-between p-4 hover:bg-[#3d2f26]"
-            >
+              className="w-full flex items-center justify-between p-4 hover:bg-[#3d2f26]">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
                   <LogOut size={20} className="text-blue-500" />
@@ -183,4 +281,26 @@ export function ProfileScreen({ onNavigate }: ProfileScreenProps) {
       </div>
     </div>
   );
+
+  if (isModal) {
+    return (
+      <div 
+        className="fixed inset-0 z-50 flex items-center justify-center px-5"
+        onClick={onClose}
+      >
+        {/* Backdrop with blur */}
+        <div className="absolute inset-0 bg-black/50 backdrop-blur-lg" />
+        
+        {/* Modal Content */}
+        <div 
+          className="relative w-full max-w-md bg-gradient-to-b from-[#3d2817] to-[#1a1410] rounded-3xl shadow-2xl max-h-[75vh] overflow-y-auto scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {profileContent}
+        </div>
+      </div>
+    );
+  }
+
+  return profileContent;
 }

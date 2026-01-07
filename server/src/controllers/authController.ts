@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import User from "../models/User";
 import generateToken from "../utils/generateToken";
+import { generateFriendCode } from "../utils/generateFriendCode";
 
 // @desc    Auth user & get token
 // @route   POST /api/auth/login
@@ -15,6 +16,7 @@ export const authUser = async (req: Request, res: Response): Promise<void> => {
       _id: user._id,
       username: user.username,
       displayName: user.displayName,
+      friendCode: user.friendCode,
       email: user.email,
       token: generateToken(user._id.toString()),
     });
@@ -41,6 +43,7 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
     displayName,
     email,
     password,
+    friendCode: generateFriendCode(),
   });
 
   if (user) {
@@ -48,10 +51,45 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
       _id: user._id,
       username: user.username,
       displayName: user.displayName,
+      friendCode: user.friendCode,
       email: user.email,
       token: generateToken(user._id.toString()),
     });
   } else {
     res.status(400).json({ message: "Invalid user data" });
+  }
+};
+
+// @desc    Update user profile
+// @route   PUT /api/auth/profile
+// @access  Private
+export const updateUserProfile = async (req: any, res: Response): Promise<void> => {
+  const user = await User.findById(req.user._id);
+
+  if (user) {
+    user.displayName = req.body.displayName || user.displayName;
+    if (req.body.email) {
+        user.email = req.body.email;
+    }
+    if (req.body.username) {
+        user.username = req.body.username;
+    }
+
+    if (req.body.password) {
+      user.password = req.body.password;
+    }
+
+    const updatedUser = await user.save();
+
+    res.json({
+      _id: updatedUser._id,
+      username: updatedUser.username,
+      displayName: updatedUser.displayName,
+      friendCode: updatedUser.friendCode,
+      email: updatedUser.email,
+      token: generateToken(updatedUser._id.toString()),
+    });
+  } else {
+    res.status(404).json({ message: "User not found" });
   }
 };

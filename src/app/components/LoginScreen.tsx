@@ -28,7 +28,8 @@ export function LoginScreen({ onLogin }: Props) {
             username,
             display_name: params.get("displayName") || username,
             email: "google-auth-user", // Placeholder or get from another call if needed
-            token
+            token,
+            friendCode: params.get("friendCode") || undefined,
         });
         // Clear URL
         window.history.replaceState({}, document.title, "/");
@@ -79,6 +80,7 @@ export function LoginScreen({ onLogin }: Props) {
         display_name: response.data.displayName || response.data.username,
         email: response.data.email,
         token: response.data.token,
+        friendCode: response.data.friendCode,
       };
       
       onLogin(sessionUser);
