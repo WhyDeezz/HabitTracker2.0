@@ -6,6 +6,7 @@ export interface IUser {
   email: string; // Fixed: Interface should have the primitive type, not the schema config
   displayName: string;
   friendCode: string;
+  friends: any[]; // Array of User ObjectIds
   password?: string; // Optional
   googleId?: string; // Optional
   createdAt: Date;
@@ -38,6 +39,12 @@ const UserSchema = new Schema<IUser>(
       unique: true,
       uppercase: true,
     },
+    friends: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
     password: {
       type: String,
       required: false, // Optional for Google Auth users

@@ -4,14 +4,15 @@ import api from "../../lib/api"; // Added api import
 
 type Props = {
   onLogin: (user: any) => void;
+  initialMode?: "login" | "signup";
 };
 
-export function LoginScreen({ onLogin }: Props) {
+export function LoginScreen({ onLogin, initialMode = "login" }: Props) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
-  const [isSignup, setIsSignup] = useState(false);
+  const [isSignup, setIsSignup] = useState(initialMode === "signup");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

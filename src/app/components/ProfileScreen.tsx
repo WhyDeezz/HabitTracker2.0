@@ -60,6 +60,7 @@ export function ProfileScreen({ onNavigate, isModal = false, onClose, updateSess
   ---------------------------- */
   const handleLogout = (): void => {
     localStorage.removeItem(STORAGE_KEY_SESSION);
+    localStorage.removeItem("HAS_COMPLETED_ONBOARDING");
     window.location.reload(); // Simple reload to reset state/auth guard
   };
 

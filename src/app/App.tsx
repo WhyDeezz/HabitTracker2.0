@@ -7,6 +7,7 @@ import { CreateHabitScreen } from "./components/CreateHabitScreen";
 import { ProfileScreen } from "./components/ProfileScreen";
 import { SocialScreen } from "./components/SocialScreen";
 import { BottomNav } from "./components/BottomNav";
+import { OnboardingScreen } from "./components/OnboardingScreen";
 import { LoginScreen } from "./components/LoginScreen";
 
 type Screen = "habits" | "create" | "profile" | "social";
@@ -47,14 +48,31 @@ export default function App() {
   /* ---------------------------
      AUTH SESSION (LOCAL STORAGE)
   ---------------------------- */
+  const [onboardingComplete, setOnboardingComplete] = useState<boolean>(false);
+
   useEffect(() => {
     // Check for existing session
     const storedSession = localStorage.getItem(STORAGE_KEY_SESSION);
     if (storedSession) {
       setSession(JSON.parse(storedSession));
     }
+    
+    // Check onboarding status
+    const hasOnboarded = localStorage.getItem("HAS_COMPLETED_ONBOARDING");
+    if (hasOnboarded === "true") {
+      setOnboardingComplete(true);
+    }
+    
     setAuthLoading(false);
   }, []);
+
+  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
+
+  const handleOnboardingComplete = (target: "login" | "signup") => {
+    localStorage.setItem("HAS_COMPLETED_ONBOARDING", "true");
+    setAuthMode(target);
+    setOnboardingComplete(true);
+  };
 
   const handleLogin = (user: any) => {
     setSession(user);
@@ -194,7 +212,10 @@ export default function App() {
   }
 
   if (!session) {
-    return <LoginScreen onLogin={handleLogin} />;
+    if (!onboardingComplete) {
+      return <OnboardingScreen onComplete={handleOnboardingComplete} />;
+    }
+    return <LoginScreen onLogin={handleLogin} initialMode={authMode} />;
   }
 
   return (

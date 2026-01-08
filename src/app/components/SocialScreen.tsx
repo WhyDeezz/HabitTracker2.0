@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { UserPlus, MoreVertical, Check, X, Menu, Pencil, Users, User, Search, Calendar } from "lucide-react";
+import { UserPlus, MoreVertical, Check, X, Menu, Pencil, Users, User, Search, Calendar, Copy } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import * as Switch from "@radix-ui/react-switch";
+import api from "../../lib/api";
 
 type Screen = "habits" | "create" | "profile" | "social";
 
@@ -34,13 +35,13 @@ interface FriendToAdd {
 }
 
 export function SocialScreen({ onNavigate }: SocialScreenProps) {
-  const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
   const [showCreateSquad, setShowCreateSquad] = useState(false);
   const [showGroupDetails, setShowGroupDetails] = useState(false);
   const [showGroupMenu, setShowGroupMenu] = useState(false);
   const [showAddFriend, setShowAddFriend] = useState(false);
   const [friendCode, setFriendCode] = useState("");
-  const [searchedFriend, setSearchedFriend] = useState<{name: string; friendCode: string; streak: number} | null>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [searchedFriend, setSearchedFriend] = useState<{name: string; friendCode: string; streak: number; id: string} | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const [squadName, setSquadName] = useState("");
   const [trackingType, setTrackingType] = useState<"shared" | "individual">("shared");
@@ -48,6 +49,37 @@ export function SocialScreen({ onNavigate }: SocialScreenProps) {
   const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [userProfile, setUserProfile] = useState<{display_name: string; friendCode?: string} | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [friends, setFriends] = useState<Friend[]>([]);
+
+  // Fetch Friends
+  useEffect(() => {
+    const fetchFriends = async () => {
+        try {
+            const res = await api.get("/friends");
+            const mappedFriends = res.data.map((f: any) => ({
+                id: f._id,
+                name: f.displayName,
+                emoji: "😎", // Default emoji
+                streak: 0, // Default streak
+                isOnline: false,
+                friendCode: f.friendCode
+            }));
+            setFriends(mappedFriends);
+        } catch (err) {
+            console.error("Failed to fetch friends", err);
+        }
+    };
+    fetchFriends();
+  }, []);
+
+  const copyFriendCode = () => {
+    if (userProfile?.friendCode) {
+      navigator.clipboard.writeText(userProfile.friendCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
 
   // Load user profile
   useEffect(() => {
@@ -95,10 +127,8 @@ export function SocialScreen({ onNavigate }: SocialScreenProps) {
     { id: "3", avatar: "👨‍🎨" },
   ];
 
-  const friends: Friend[] = [
-    { id: "f1", name: "Sarah J.", emoji: "👑", streak: 21, isOnline: true, friendCode: "HABIT-A3X9Z2" },
-    { id: "f2", name: "Mike T.", emoji: "🔥", streak: 7, isOnline: true, friendCode: "HABIT-B7K#M1" },
-  ];
+  // Dummy data removed, using state 'friends'
+
 
   const availableFriends: FriendToAdd[] = [
     { id: "af1", name: "Sarah", lastActive: "", avatar: "👩" },
@@ -108,16 +138,7 @@ export function SocialScreen({ onNavigate }: SocialScreenProps) {
     { id: "af5", name: "Marcus Johnson", lastActive: "Last active 2d ago", avatar: "👨‍🦱" },
   ];
 
-  const currentGroup = groups[currentGroupIndex];
 
-  const handleSwipe = (direction: number) => {
-    setCurrentGroupIndex((prev) => {
-      const next = prev + direction;
-      if (next < 0) return groups.length - 1;
-      if (next >= groups.length) return 0;
-      return next;
-    });
-  };
 
   const toggleFriendSelection = (friendId: string) => {
     setSelectedFriends((prev) =>
@@ -222,7 +243,7 @@ export function SocialScreen({ onNavigate }: SocialScreenProps) {
             <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" 
               style={{ scrollSnapType: 'x mandatory' }}
             >
-              {groups.map((group, index) => (
+              {groups.map((group, _) => (
                 <motion.div
                   key={group.id}
                   className="flex-shrink-0 w-[85%] snap-center"
@@ -230,31 +251,35 @@ export function SocialScreen({ onNavigate }: SocialScreenProps) {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <div className="bg-[#1a1410] rounded-xl p-4 border border-[#3d2f26]">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center border-2 border-[#1a1410]">
-                        <span className="text-lg">{group.avatar}</span>
+                  <div className="bg-[#2a1f19] rounded-2xl p-5 border border-[#3d2f26] shadow-lg">
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <h3 className="font-bold text-lg text-white mb-1">{group.name}</h3>
+                        <p className="text-[10px] font-extrabold text-[#ff5722] uppercase tracking-wider">ACTIVE SQUAD</p>
                       </div>
-                      <div className="flex-1">
-                        <p className="font-semibold text-sm">{group.name}</p>
-                        <p className="text-xs text-[#ff5722]">
-                          {group.daysToGoal} day{group.daysToGoal !== 1 ? 's' : ''} to 7-Day Streak! 🔥
-                        </p>
+                      <div className="flex items-center gap-1.5 bg-[#1a1410] px-3 py-1.5 rounded-full border border-[#3d2f26]">
+                        <span className="text-sm font-bold text-white">{group.daysToGoal} days</span>
+                        <span className="text-sm">🔥</span>
                       </div>
                     </div>
 
-                    <p className="text-xs text-[#8a7a6e] mb-3 leading-relaxed line-clamp-2">
-                      {group.description}
-                    </p>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex -space-x-3">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 border-2 border-[#2a1f19] flex items-center justify-center text-xs">👩</div>
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 border-2 border-[#2a1f19] flex items-center justify-center text-xs">👨</div>
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 border-2 border-[#2a1f19] flex items-center justify-center text-xs">🧑</div>
+                        <div className="w-8 h-8 rounded-full bg-[#3d2f26] border-2 border-[#2a1f19] flex items-center justify-center text-[10px] font-semibold text-[#8a7a6e]">+2</div>
+                      </div>
+                    </div>
 
                     <button 
                       onClick={() => {
                         setSelectedGroup(group);
                         setShowGroupDetails(true);
                       }}
-                      className="w-full bg-[#ff5722]/10 hover:bg-[#ff5722]/20 border border-[#ff5722]/20 text-[#ff5722] rounded-lg py-2 text-xs font-semibold transition-colors"
+                      className="w-full bg-[#ff5722]/10 hover:bg-[#ff5722]/20 border border-[#ff5722]/20 text-[#ff5722] rounded-xl py-3 text-sm font-bold transition-colors"
                     >
-                      View Group
+                      View Squad
                     </button>
                   </div>
                 </motion.div>
@@ -263,9 +288,9 @@ export function SocialScreen({ onNavigate }: SocialScreenProps) {
           </div>
         </div>
 
-        {/* Your Crew */}
+        {/* Your Friends */}
         <div>
-          <h2 className="text-xl font-bold mb-4">Your Crew</h2>
+          <h2 className="text-xl font-bold mb-4">Your friends</h2>
           <div className="space-y-3">
             {friends.map((friend) => (
               <div
@@ -428,7 +453,7 @@ export function SocialScreen({ onNavigate }: SocialScreenProps) {
                     <Calendar size={18} className="absolute right-0 top-1/2 -translate-y-1/2 text-[#8a7a6e]" />
                   </div>
                   <div className="flex gap-2">
-                    {[7, 21, 30, 66].map((days) => (
+                    {[21, 48, 66].map((days) => (
                       <button
                         key={days}
                         onClick={() => setDuration(days)}
@@ -526,7 +551,7 @@ export function SocialScreen({ onNavigate }: SocialScreenProps) {
                     
                     // Add to groups
                     setGroups([...groups, newSquad]);
-                    setCurrentGroupIndex(groups.length); // Navigate to new group
+                    // setGroups([...groups, newSquad]);
                     
                     // Reset form and close modal
                     setSquadName("");
@@ -569,7 +594,7 @@ export function SocialScreen({ onNavigate }: SocialScreenProps) {
               >
                 <X size={20} />
               </button>
-              <h1 className="text-sm font-semibold uppercase tracking-wider text-[#8a7a6e]">Group Details</h1>
+              <h1 className="text-sm font-semibold uppercase tracking-wider text-[#8a7a6e]">Squad details</h1>
               <button 
                 onClick={() => setShowGroupMenu(true)}
                 className="p-2 hover:bg-[#2a1f19] rounded-lg transition-colors"
@@ -732,10 +757,23 @@ export function SocialScreen({ onNavigate }: SocialScreenProps) {
                   setShowAddFriend(false);
                   setFriendCode("");
                   setSearchedFriend(null);
+                  setSearchError(null);
                 }}
                 className="p-2 hover:bg-[#2a1f19] rounded-lg transition-colors"
               >
                 <X size={20} />
+              </button>
+            </div>
+
+            {/* Your Friend Code */}
+            <div className="mb-6 bg-[#2a1f19] rounded-xl p-4 border border-[#3d2f26] flex items-center justify-between">
+              <div>
+                <p className="text-xs text-[#8a7a6e] mb-1">Your Friend Code</p>
+                <p className="font-mono font-bold text-lg tracking-wider text-white">{userProfile?.friendCode || "HABIT-XXXXXX"}</p>
+              </div>
+              <button onClick={copyFriendCode} className="p-2 hover:bg-[#3d2f26] rounded-lg transition-colors relative">
+                {copied ? <Check size={20} className="text-green-500" /> : <Copy size={20} className="text-[#ff5722]" />}
+                {copied && <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-green-500 text-black text-[10px] font-bold px-2 py-1 rounded shadow-lg">Copied!</span>}
               </button>
             </div>
 
@@ -746,20 +784,30 @@ export function SocialScreen({ onNavigate }: SocialScreenProps) {
                 <input
                   type="text"
                   value={friendCode}
-                  onChange={(e) => setFriendCode(e.target.value.toUpperCase())}
+                  onChange={(e) => {
+                    setFriendCode(e.target.value.toUpperCase());
+                    setSearchedFriend(null);
+                    setSearchError(null);
+                  }}
                   placeholder="HABIT-XXXXXX"
                   className="flex-1 bg-[#2a1f19] border border-[#3d2f26] rounded-xl px-4 py-3 text-white placeholder:text-[#8a7a6e] focus:outline-none focus:border-[#ff5722] font-mono"
                 />
                 <button
-                  onClick={() => {
-                    // Simulate search - in real app, this would call an API
+                  onClick={async () => {
                     if (friendCode.trim()) {
-                      // Mock search result
-                      setSearchedFriend({
-                        name: "John Doe",
-                        friendCode: friendCode,
-                        streak: 14
-                      });
+                      setSearchError(null);
+                      try {
+                        const res = await api.get(`/friends/search?code=${encodeURIComponent(friendCode)}`);
+                        setSearchedFriend({
+                              name: res.data.displayName,
+                              friendCode: res.data.friendCode,
+                              streak: 0,
+                              id: res.data._id
+                        });
+                      } catch (err: any) {
+                        setSearchError("No user found with this friend code");
+                        setSearchedFriend(null);
+                      }
                     }
                   }}
                   disabled={!friendCode.trim()}
@@ -786,26 +834,44 @@ export function SocialScreen({ onNavigate }: SocialScreenProps) {
                   </div>
                 </div>
 
-                <button
-                  onClick={() => {
-                    // Add friend to crew
-                    alert(`Added ${searchedFriend.name} to your crew!`);
-                    setShowAddFriend(false);
-                    setFriendCode("");
-                    setSearchedFriend(null);
+                <button 
+                  onClick={async () => {
+                      if (!searchedFriend) return;
+                      try {
+                          await api.post("/friends/add", { friendId: searchedFriend.id });
+                          alert("Friend added!");
+                          setShowAddFriend(false);
+                          setFriendCode("");
+                          setSearchedFriend(null);
+                          setSearchError(null);
+                          // Refresh friends list
+                           const res = await api.get("/friends");
+                           const mappedFriends = res.data.map((f: any) => ({
+                                id: f._id,
+                                name: f.displayName,
+                                emoji: "😎", // Default emoji
+                                streak: 0, // Default streak
+                                isOnline: false,
+                                friendCode: f.friendCode
+                            }));
+                            setFriends(mappedFriends);
+
+                      } catch (err: any) {
+                          alert(err.response?.data?.message || "Failed to add friend");
+                      }
                   }}
-                  className="w-full bg-[#ff5722] hover:bg-[#ff6b3d] text-white rounded-xl py-3 font-semibold transition-colors flex items-center justify-center gap-2"
+                  className="w-full bg-[#ff5722] hover:bg-[#ff6b3d] text-white rounded-xl py-3 font-semibold mt-4 flex items-center justify-center gap-2 transition-colors"
                 >
                   <UserPlus size={18} />
-                  Add to Your Crew
+                  Add Friend
                 </button>
               </div>
             )}
 
             {/* No Result */}
-            {friendCode && !searchedFriend && friendCode.length >= 8 && (
+            {searchError && (
               <div className="bg-[#2a1f19] rounded-2xl p-6 text-center border border-[#3d2f26]">
-                <p className="text-sm text-[#8a7a6e]">No user found with this friend code</p>
+                <p className="text-sm text-[#8a7a6e]">{searchError}</p>
               </div>
             )}
           </div>

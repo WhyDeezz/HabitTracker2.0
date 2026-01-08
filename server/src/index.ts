@@ -24,7 +24,10 @@ import "./config/passport"; // Load passport config
 connectDB();
 
 import authRoutes from "./routes/authRoutes";
+import friendRoutes from "./routes/friendRoutes";
+
 app.use("/api/auth", authRoutes);
+app.use("/api/friends", friendRoutes);
 
 // Basic Route
 app.get("/", (req, res) => {
