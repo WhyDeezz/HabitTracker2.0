@@ -3,7 +3,6 @@ import {
   Bell,
   UserPlus,
   LogOut,
-  Trash2,
   ChevronRight,
   Pencil,
   Check,
@@ -18,6 +17,7 @@ interface ProfileScreenProps {
   isModal?: boolean;
   onClose?: () => void;
   updateSession?: (updatedUser: any) => void;
+  streak?: number;
 }
 
 interface Profile {
@@ -30,13 +30,12 @@ interface Profile {
 }
 
 const STORAGE_KEY_SESSION = "habit-tracker-session";
-const STORAGE_KEY_HABITS = "habit-tracker-habits";
 
-export function ProfileScreen({ onNavigate, isModal = false, onClose, updateSession }: ProfileScreenProps) {
+export function ProfileScreen({ onNavigate, isModal = false, onClose, updateSession, streak = 0 }: ProfileScreenProps) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState("");
-  const [streak, setStreak] = useState<number>(0);
+  // Streak passed via props
   const [notificationsEnabled, setNotificationsEnabled] =
     useState<boolean>(true);
 
@@ -50,9 +49,7 @@ export function ProfileScreen({ onNavigate, isModal = false, onClose, updateSess
       setProfile(JSON.parse(storedSession));
     }
 
-    // 2. Calculate Mock Streak (Simple logic: if verified active)
-    // For a real app, calculate based on completions.
-    setStreak(3); 
+    // 2. Mock streak removed, using prop
   }, []);
 
   /* ---------------------------
@@ -62,19 +59,6 @@ export function ProfileScreen({ onNavigate, isModal = false, onClose, updateSess
     localStorage.removeItem(STORAGE_KEY_SESSION);
     localStorage.removeItem("HAS_COMPLETED_ONBOARDING");
     window.location.reload(); // Simple reload to reset state/auth guard
-  };
-
-  /* ---------------------------
-     DELETE ACCOUNT
-  ---------------------------- */
-  const handleDeleteAccount = (): void => {
-    const confirmed = window.confirm(
-      "This will permanently delete your local data. Continue?"
-    );
-    if (!confirmed) return;
-
-    localStorage.clear();
-    window.location.reload();
   };
 
   /* ---------------------------
@@ -261,18 +245,7 @@ export function ProfileScreen({ onNavigate, isModal = false, onClose, updateSess
               </div>
               <ChevronRight size={20} className="text-[#8a7a6e]" />
             </button>
-
-            <button
-              onClick={handleDeleteAccount}
-              className="w-full flex items-center justify-between p-4 hover:bg-[#3d2f26]"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
-                  <Trash2 size={20} className="text-red-500" />
-                </div>
-                <span className="text-red-500">Delete data</span>
-              </div>
-            </button>
+            
           </div>
         </div>
 

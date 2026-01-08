@@ -12,12 +12,17 @@ export const authUser = async (req: Request, res: Response): Promise<void> => {
   const user = await User.findOne({ email });
 
   if (user && (await user.matchPassword(password))) {
+    // Check Streak Validity
+    await user.checkStreak();
+    
     res.json({
       _id: user._id,
       username: user.username,
       displayName: user.displayName,
       friendCode: user.friendCode,
       email: user.email,
+      streak: user.streak,
+      lastCompletedDate: user.lastCompletedDate,
       token: generateToken(user._id.toString()),
     });
   } else {
@@ -53,6 +58,8 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
       displayName: user.displayName,
       friendCode: user.friendCode,
       email: user.email,
+      streak: user.streak,
+      lastCompletedDate: user.lastCompletedDate,
       token: generateToken(user._id.toString()),
     });
   } else {
@@ -80,6 +87,9 @@ export const updateUserProfile = async (req: any, res: Response): Promise<void> 
     }
 
     const updatedUser = await user.save();
+    
+    // Check Streak Validity
+    await updatedUser.checkStreak();
 
     res.json({
       _id: updatedUser._id,
@@ -87,6 +97,7 @@ export const updateUserProfile = async (req: any, res: Response): Promise<void> 
       displayName: updatedUser.displayName,
       friendCode: updatedUser.friendCode,
       email: updatedUser.email,
+      streak: updatedUser.streak,
       token: generateToken(updatedUser._id.toString()),
     });
   } else {

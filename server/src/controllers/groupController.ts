@@ -47,7 +47,7 @@ export const getUserGroups = async (req: any, res: Response, next: NextFunction)
         const groups = await Group.find({ 
             members: req.user._id 
         })
-        .populate("members", "displayName username friendCode")
+        .populate("members", "displayName username friendCode streak")
         .sort({ createdAt: -1 });
 
         res.json(groups);

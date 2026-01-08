@@ -15,7 +15,7 @@ export const searchUser = async (req: any, res: Response, next: NextFunction): P
 
     const user = await User.findOne({ 
         friendCode: code.toUpperCase() 
-    }).select("displayName username friendCode _id");
+    }).select("displayName username friendCode _id streak lastCompletedDate");
 
     if (!user) {
        res.status(404).json({ message: "User not found" });
@@ -62,7 +62,17 @@ export const addFriend = async (req: any, res: Response, next: NextFunction): Pr
         await currentUser.save();
         await friendToAdd.save();
 
-        res.json({ message: "Friend added successfully" });
+        res.json({ 
+            message: "Friend added successfully",
+            friend: {
+                _id: friendToAdd._id,
+                displayName: friendToAdd.displayName,
+                username: friendToAdd.username,
+                friendCode: friendToAdd.friendCode,
+                streak: friendToAdd.streak,
+                lastCompletedDate: friendToAdd.lastCompletedDate
+            }
+        });
     } catch (error) {
         next(error);
     }
@@ -101,7 +111,7 @@ export const removeFriend = async (req: any, res: Response, next: NextFunction):
 // @access  Private
 export const getFriends = async (req: any, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const user = await User.findById(req.user._id).populate("friends", "displayName username friendCode");
+        const user = await User.findById(req.user._id).populate("friends", "displayName username friendCode streak lastCompletedDate");
         
         if (!user) {
             res.status(404).json({ message: "User not found" });

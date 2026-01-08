@@ -6,8 +6,19 @@ import api from "../../lib/api";
 
 type Screen = "habits" | "create" | "profile" | "social";
 
+// Types needed for habits to calculate progress
+interface UIHabit {
+  id: string;
+  name: string;
+  micro_identity: string | null;
+  goal: number;
+  completed_today: boolean;
+}
+
 interface SocialScreenProps {
   onNavigate: (screen: Screen) => void;
+  habits?: UIHabit[];
+  streak?: number;
 }
 
 interface Friend {
@@ -17,6 +28,7 @@ interface Friend {
   streak: number;
   isOnline: boolean;
   friendCode: string;
+  completedToday: boolean;
 }
 
 interface Group {
@@ -25,13 +37,14 @@ interface Group {
   avatar: string;
   daysToGoal: number;
   description: string;
-  members: { _id: string; displayName: string; username: string }[];
+  members: { _id: string; displayName: string; username: string; streak?: number }[];
   creator: string;
+  groupStreak?: number;
 }
 
 
 
-export function SocialScreen({ onNavigate }: SocialScreenProps) {
+export function SocialScreen({ habits = [], streak = 0 }: SocialScreenProps) {
   const [showCreateSquad, setShowCreateSquad] = useState(false);
   const [showGroupDetails, setShowGroupDetails] = useState(false);
   const [showGroupMenu, setShowGroupMenu] = useState(false);
@@ -42,13 +55,14 @@ export function SocialScreen({ onNavigate }: SocialScreenProps) {
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [showInviteToSquad, setShowInviteToSquad] = useState(false);
   const [friendToRemove, setFriendToRemove] = useState<Friend | null>(null);
+  const [showDailyGoalModal, setShowDailyGoalModal] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const [squadName, setSquadName] = useState("");
   const [trackingType, setTrackingType] = useState<"shared" | "individual">("shared");
   const [duration, setDuration] = useState(30);
   const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [userProfile, setUserProfile] = useState<{id: string; display_name: string; friendCode?: string} | null>(null);
+  const [userProfile, setUserProfile] = useState<{id: string; display_name: string; friendCode?: string; streak?: number} | null>(null);
   const [copied, setCopied] = useState(false);
   const [friends, setFriends] = useState<Friend[]>([]);
 
@@ -57,14 +71,20 @@ export function SocialScreen({ onNavigate }: SocialScreenProps) {
     const fetchFriends = async () => {
         try {
             const res = await api.get("/friends");
-            const mappedFriends = res.data.map((f: any) => ({
-                id: f._id,
-                name: f.displayName,
-                emoji: "😎", // Default emoji
-                streak: 0, // Default streak
-                isOnline: false,
-                friendCode: f.friendCode
-            }));
+            const mappedFriends = res.data.map((f: any) => {
+                const today = new Date().toISOString().slice(0, 10);
+                const lastDate = f.lastCompletedDate ? new Date(f.lastCompletedDate).toISOString().slice(0, 10) : "";
+                
+                return {
+                    id: f._id,
+                    name: f.displayName,
+                    emoji: "😎", 
+                    streak: f.streak || 0,
+                    isOnline: false, // Could implement real online status later
+                    friendCode: f.friendCode,
+                    completedToday: lastDate === today
+                };
+            });
             setFriends(mappedFriends);
         } catch (err) {
             console.error("Failed to fetch friends", err);
@@ -115,15 +135,20 @@ export function SocialScreen({ onNavigate }: SocialScreenProps) {
     fetchGroups();
   }, [showCreateSquad]); 
 
+  // Calculate Progress
+  const completedCount = habits.filter(h => h.completed_today).length;
+  const totalCount = habits.length;
+  const progressPercentage = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
+
+  // Filter friends who completed all habits today
+  const dailyGoalFriends = friends.filter(f => f.completedToday);
+
   // Dummy data removed
-  const dailyGoalFriends = [
-    { id: "1", avatar: "👨‍💼" },
-    { id: "2", avatar: "👩‍💻" },
-    { id: "3", avatar: "👨‍🎨" },
-  ];
-
-  // Dummy data removed, using state 'friends'
-
+  // const dailyGoalFriends = [
+  //   { id: "1", avatar: "👨‍💼" },
+  //   { id: "2", avatar: "👩‍💻" },
+  //   { id: "3", avatar: "👨‍🎨" },
+  // ];
 
   const toggleFriendSelection = (friendId: string) => {
     setSelectedFriends((prev) => {
@@ -185,25 +210,31 @@ export function SocialScreen({ onNavigate }: SocialScreenProps) {
               <p className="text-xs text-[#8a7a6e] font-mono">{userProfile?.friendCode || "HABIT-XXXXXX"}</p>
             </div>
             <div className="text-right">
-              <p className="text-sm text-[#8a7a6e]">Today</p>
-              <p className="text-lg font-bold text-[#ff5722]">3/5</p>
+              <p className="text-sm text-[#8a7a6e]">Streak</p>
+              <p className="text-lg font-bold text-[#ff5722]">{streak} 🔥</p>
             </div>
           </div>
           <div className="h-2 bg-[#3d2f26] rounded-full overflow-hidden">
-            <div className="h-full bg-[#ff5722]" style={{ width: "60%" }} />
+            <div 
+                className="h-full bg-[#ff5722] transition-all duration-500 ease-out" 
+                style={{ width: `${progressPercentage}%` }} 
+            />
           </div>
         </div>
 
         {/* Daily Goal */}
-        <div className="bg-[#2a1f19] rounded-2xl p-5 mb-4 border border-[#3d2f26]">
+        <div 
+          onClick={() => dailyGoalFriends.length > 0 && setShowDailyGoalModal(true)}
+          className={`bg-[#2a1f19] rounded-2xl p-5 mb-4 border border-[#3d2f26] ${dailyGoalFriends.length > 0 ? 'cursor-pointer active:scale-[0.98] transition-transform' : ''}`}
+        >
           <p className="text-xs text-[#ff5722] uppercase tracking-wider mb-2 font-semibold">
             Daily Goal
           </p>
           <h2 className="text-lg font-bold mb-1">
-            {dailyGoalFriends.length} friends completed all habits today
+            {dailyGoalFriends.length} friend{dailyGoalFriends.length !== 1 ? 's' : ''} completed all habits today
           </h2>
           <p className="text-sm text-[#8a7a6e] mb-3">
-            Tap to see who crushed it!
+            {dailyGoalFriends.length > 0 ? 'Tap to see who crushed it!' : 'Check back later!'}
           </p>
           <div className="flex gap-2">
             {dailyGoalFriends.map((friend) => (
@@ -211,7 +242,7 @@ export function SocialScreen({ onNavigate }: SocialScreenProps) {
                 key={friend.id}
                 className="relative w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center text-lg border-2 border-[#1a1410]"
               >
-                {friend.avatar}
+                {friend.emoji} {/* Using friend's emoji instead of avatar */}
                 <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center border-2 border-[#1a1410]">
                   <Check size={12} className="text-white" strokeWidth={3} />
                 </div>
@@ -270,7 +301,7 @@ export function SocialScreen({ onNavigate }: SocialScreenProps) {
                         <p className="text-[10px] font-extrabold text-[#ff5722] uppercase tracking-wider">ACTIVE SQUAD</p>
                       </div>
                       <div className="flex items-center gap-1.5 bg-[#1a1410] px-3 py-1.5 rounded-full border border-[#3d2f26]">
-                        <span className="text-sm font-bold text-white">{group.daysToGoal} days</span>
+                        <span className="text-sm font-bold text-white">{group.groupStreak || 0} days</span>
                         <span className="text-sm">🔥</span>
                       </div>
                     </div>
@@ -677,7 +708,7 @@ export function SocialScreen({ onNavigate }: SocialScreenProps) {
                <div className="grid grid-cols-2 gap-3 mb-6">
                  <div className="bg-[#2a1f19] rounded-xl p-4 text-center border border-[#3d2f26]">
                    <p className="text-xs text-[#8a7a6e] uppercase tracking-wide mb-1">Total Streak</p>
-                   <p className="text-2xl font-bold text-[#ff5722]">24 Days</p>
+                    <p className="text-2xl font-bold text-[#ff5722]">{selectedGroup.groupStreak || 0} Days</p>
                  </div>
                  <div className="bg-[#2a1f19] rounded-xl p-4 text-center border border-[#3d2f26]">
                    <p className="text-xs text-[#8a7a6e] uppercase tracking-wide mb-1">Members</p>
@@ -702,7 +733,7 @@ export function SocialScreen({ onNavigate }: SocialScreenProps) {
                             </div>
                             <div>
                                 <p className="font-semibold text-sm">{member.displayName} {userProfile?.friendCode === member.username ? "(You)" : ""}</p>
-                                <p className="text-xs text-[#ff5722]">0 Day Streak</p>
+                                <p className="text-xs text-[#ff5722]">{member.streak || 0} Day Streak</p>
                             </div>
                             </div>
                         </div>
@@ -850,7 +881,7 @@ export function SocialScreen({ onNavigate }: SocialScreenProps) {
                         setSearchedFriend({
                               name: res.data.displayName,
                               friendCode: res.data.friendCode,
-                              streak: 0,
+                              streak: res.data.streak || 0,
                               id: res.data._id
                         });
                       } catch (err: any) {
@@ -887,23 +918,43 @@ export function SocialScreen({ onNavigate }: SocialScreenProps) {
                   onClick={async () => {
                       if (!searchedFriend) return;
                       try {
-                          await api.post("/friends/add", { friendId: searchedFriend.id });
+                          // Use response from add friend endpoint (which I updated previously to return the friend)
+                          // WAIT: default api.post("/friends/add") does NOT return friend in my *current* understanding of friendController?
+                          // Let me check my friendController edit in Step 276.
+                          // Yes, it returns { message, friend: { ... } }
+                          
+                          const res = await api.post("/friends/add", { friendId: searchedFriend.id });
                           alert("Friend added!");
+                          
+                          if (res.data.friend) {
+                                const newFriendData = res.data.friend;
+                                const today = new Date().toISOString().slice(0, 10);
+                                const lastDate = newFriendData.lastCompletedDate ? new Date(newFriendData.lastCompletedDate).toISOString().slice(0, 10) : "";
+
+                                 const newFriend: Friend = {
+                                    id: newFriendData._id,
+                                    name: newFriendData.displayName,
+                                    emoji: "😎",
+                                    streak: newFriendData.streak || 0,
+                                    isOnline: false,
+                                    friendCode: newFriendData.friendCode,
+                                    completedToday: lastDate === today
+                                 };
+                                 
+                                 setFriends(prev => [...prev, newFriend]);
+                          } else {
+                              // Fallback if backend didn't return friend (shouldn't happen with updated controller)
+                               // Refresh friends list
+                               const resList = await api.get("/friends");
+                               setFriends(resList.data.map((f:any) => ({
+                                   id: f._id, name: f.displayName, emoji: "😎", streak: f.streak || 0, isOnline: false, friendCode: f.friendCode, completedToday: false // simplistic fallback
+                               })));
+                          }
+                          
                           setShowAddFriend(false);
                           setFriendCode("");
                           setSearchedFriend(null);
                           setSearchError(null);
-                          // Refresh friends list
-                           const res = await api.get("/friends");
-                           const mappedFriends = res.data.map((f: any) => ({
-                                id: f._id,
-                                name: f.displayName,
-                                emoji: "😎", // Default emoji
-                                streak: 0, // Default streak
-                                isOnline: false,
-                                friendCode: f.friendCode
-                            }));
-                            setFriends(mappedFriends);
 
                       } catch (err: any) {
                           alert(err.response?.data?.message || "Failed to add friend");
@@ -1098,6 +1149,63 @@ export function SocialScreen({ onNavigate }: SocialScreenProps) {
                             Remove
                         </button>
                     </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
+
+          {/* Daily Goal Modal */}
+          <AnimatePresence>
+            {showDailyGoalModal && (
+              <div
+                className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end justify-center z-50 pb-20"
+                onClick={() => setShowDailyGoalModal(false)}
+              >
+                <motion.div
+                  initial={{ opacity: 0, y: 100 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 100 }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="bg-[#1a1410] rounded-3xl p-6 w-full max-w-md max-h-[60vh] overflow-y-auto border border-[#3d2f26] mx-4 mb-4"
+                >
+                  <div className="flex justify-between items-center mb-6">
+                    <div>
+                      <h3 className="text-2xl font-bold text-white">Daily Champions 🔥</h3>
+                      <p className="text-sm text-[#8a7a6e] mt-1">{dailyGoalFriends.length} friend{dailyGoalFriends.length !== 1 ? 's' : ''} crushed it today!</p>
+                    </div>
+                    <button
+                      onClick={() => setShowDailyGoalModal(false)}
+                      className="p-2 hover:bg-[#2a1f19] rounded-full transition-colors"
+                    >
+                      <X size={24} className="text-[#8a7a6e]" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {dailyGoalFriends.map((friend) => (
+                      <div
+                        key={friend.id}
+                        className="bg-[#2a1f19] rounded-xl p-4 border border-[#3d2f26] flex items-center justify-between"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="relative w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center text-xl border-2 border-[#1a1410]">
+                            {friend.emoji}
+                            <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-[#1a1410] flex items-center justify-center">
+                              <Check size={12} className="text-white" strokeWidth={3} />
+                            </div>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-white">{friend.name}</p>
+                            <p className="text-xs text-[#8a7a6e]">@{friend.friendCode}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-semibold text-[#ff5722]">{friend.streak} Day{friend.streak !== 1 ? 's' : ''}</p>
+                          <p className="text-xs text-[#8a7a6e]">Streak</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </motion.div>
               </div>
             )}

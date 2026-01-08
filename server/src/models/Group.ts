@@ -10,6 +10,8 @@ export interface IGroup {
   description: string;
   createdAt: Date;
   isActive: boolean;
+  groupStreak: number;
+  lastGroupCompletedDate: Date | null;
 }
 
 const GroupSchema = new Schema<IGroup>(
@@ -25,7 +27,9 @@ const GroupSchema = new Schema<IGroup>(
     duration: { type: Number, required: true },
     avatar: { type: String, default: "🚀" },
     description: { type: String },
-    isActive: { type: Boolean, default: true }
+    isActive: { type: Boolean, default: true },
+    groupStreak: { type: Number, default: 0 },
+    lastGroupCompletedDate: { type: Date, default: null }
   },
   { timestamps: true }
 );

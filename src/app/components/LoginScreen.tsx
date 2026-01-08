@@ -82,6 +82,8 @@ export function LoginScreen({ onLogin, initialMode = "login" }: Props) {
         email: response.data.email,
         token: response.data.token,
         friendCode: response.data.friendCode,
+        streak: response.data.streak,
+        lastCompletedDate: response.data.lastCompletedDate,
       };
       
       onLogin(sessionUser);

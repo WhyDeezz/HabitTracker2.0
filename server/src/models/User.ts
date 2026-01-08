@@ -9,9 +9,11 @@ export interface IUser {
   friends: any[]; // Array of User ObjectIds
   password?: string; // Optional
   googleId?: string; // Optional
-  createdAt: Date;
+  streak: number;
+  lastCompletedDate: Date | null;
   updatedAt: Date;
   matchPassword: (enteredPassword: string) => Promise<boolean>;
+  checkStreak: () => Promise<void>;
 }
 
 const UserSchema = new Schema<IUser>(
@@ -54,6 +56,15 @@ const UserSchema = new Schema<IUser>(
       unique: true,
       sparse: true, // Allows multiple nulls
     },
+    streak: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
+    lastCompletedDate: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );
@@ -62,6 +73,35 @@ const UserSchema = new Schema<IUser>(
 UserSchema.methods.matchPassword = async function (enteredPassword: string) {
   if (!this.password) return false;
   return bcrypt.compare(enteredPassword, this.password);
+};
+
+// Check and Reset Streak
+UserSchema.methods.checkStreak = async function () {
+    if (this.lastCompletedDate) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        
+        const lastDate = new Date(this.lastCompletedDate);
+        lastDate.setHours(0, 0, 0, 0);
+
+        // If last completed date is before yesterday, streak is broken
+        // e.g. Last = 5th. Today = 7th. Yesterday = 6th. 5 < 6 -> True. Reset.
+
+        
+        if (lastDate < yesterday) {
+
+            if (this.streak > 0) {
+                this.streak = 0;
+                await this.save();
+            }
+        } else {
+
+        }
+    } else {
+
+    }
 };
 
 // Hash password before save
