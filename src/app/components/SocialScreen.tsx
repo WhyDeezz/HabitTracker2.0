@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { UserPlus, MoreVertical, Check, X, Menu, Pencil, Users, User, Search, Calendar, Copy, Trash2, LogOut } from "lucide-react";
+import { UserPlus, MoreVertical, Check, X, Menu, Pencil, Users, User, Search, Calendar, Copy, Trash2, LogOut, Plus } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import * as Switch from "@radix-ui/react-switch";
 import api from "../../lib/api";
@@ -37,14 +37,20 @@ interface Group {
   avatar: string;
   daysToGoal: number;
   description: string;
-  members: { _id: string; displayName: string; username: string; streak?: number }[];
+  members: { 
+    _id: string; 
+    displayName: string; 
+    username: string; 
+    streak?: number;
+    linkedHabit?: { name: string; completedToday: boolean; } | null;
+  }[];
   creator: string;
   groupStreak?: number;
 }
 
 
 
-export function SocialScreen({ habits = [], streak = 0 }: SocialScreenProps) {
+export function SocialScreen({ onNavigate, habits = [], streak = 0 }: SocialScreenProps) {
   const [showCreateSquad, setShowCreateSquad] = useState(false);
   const [showGroupDetails, setShowGroupDetails] = useState(false);
   const [showGroupMenu, setShowGroupMenu] = useState(false);
@@ -54,6 +60,8 @@ export function SocialScreen({ habits = [], streak = 0 }: SocialScreenProps) {
   const [searchedFriend, setSearchedFriend] = useState<{name: string; friendCode: string; streak: number; id: string} | null>(null);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [showInviteToSquad, setShowInviteToSquad] = useState(false);
+  const [showLinkHabitModal, setShowLinkHabitModal] = useState(false); // New state
+  const [selectedHabitId, setSelectedHabitId] = useState<string | null>(null); // State for habit selection
   const [friendToRemove, setFriendToRemove] = useState<Friend | null>(null);
   const [showDailyGoalModal, setShowDailyGoalModal] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
@@ -122,18 +130,23 @@ export function SocialScreen({ habits = [], streak = 0 }: SocialScreenProps) {
   }, []);
   const [groups, setGroups] = useState<Group[]>([]);
 
-  // Fetch Groups
+  // Fetch Groups (Updated to include memberHabits handling if needed, but backend handles population)
   useEffect(() => {
     const fetchGroups = async () => {
         try {
             const res = await api.get("/groups");
             setGroups(res.data);
+            // Update selected group if open
+            if (selectedGroup) {
+                const updated = res.data.find((g: Group) => g._id === selectedGroup._id);
+                if (updated) setSelectedGroup(updated);
+            }
         } catch (err) {
             console.error("Failed to fetch groups", err);
         }
     };
     fetchGroups();
-  }, [showCreateSquad]); 
+  }, [showCreateSquad, showLinkHabitModal]); // Refresh when modal closes (after link)
 
   // Calculate Progress
   const completedCount = habits.filter(h => h.completed_today).length;
@@ -180,6 +193,16 @@ export function SocialScreen({ habits = [], streak = 0 }: SocialScreenProps) {
   const filteredFriends = friends.filter((friend) =>
     friend.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Determine if current user has a linked habit in the selected group
+  const currentUserHasLinkedHabit = selectedGroup?.members.find(
+      m => m.username === userProfile?.friendCode // Assuming friendCode is unique username or similar id check
+         || m._id === userProfile?.id // Better check
+  )?.linkedHabit;
+
+  // Find the actual member object for current user to be safe
+  const currentUserMember = selectedGroup?.members.find(m => m._id === userProfile?.id);
+  const isLinked = !!currentUserMember?.linkedHabit;
 
   return (
     <>
@@ -691,13 +714,18 @@ export function SocialScreen({ habits = [], streak = 0 }: SocialScreenProps) {
              <div className="px-5 py-6">
                {/* Group Header */}
                <div className="flex flex-col items-center mb-6">
+                 {/* ... (Avatar unchanged) */}
                  <div className="relative mb-4">
                    <div className="w-24 h-24 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center border-4 border-[#1a1410]">
                      <span className="text-4xl">{selectedGroup.avatar}</span>
                    </div>
                    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-green-500 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
                      <Check size={12} strokeWidth={3} />
-                     <span>3/10</span>
+                     <span>
+                        {selectedGroup.members?.filter(m => m.linkedHabit?.completedToday).length || 0}
+                        /
+                        {selectedGroup.members?.length || 0}
+                     </span>
                    </div>
                  </div>
                  <h2 className="text-2xl font-bold mb-1">{selectedGroup.name}</h2>
@@ -715,6 +743,19 @@ export function SocialScreen({ habits = [], streak = 0 }: SocialScreenProps) {
                    <p className="text-2xl font-bold">{selectedGroup.members?.length || 0} / 10</p>
                  </div>
                </div>
+
+               {/* Add Habit Button (Conditional) */}
+               {!isLinked && (
+                  <button
+                    onClick={() => {
+                        setShowLinkHabitModal(true);
+                    }}
+                    className="w-full bg-[#ff5722] hover:bg-[#ff6b3d] text-white rounded-xl py-3 font-semibold mb-6 flex items-center justify-center gap-2 transition-colors shadow-lg shadow-orange-900/20"
+                  >
+                    <div className="bg-white/20 p-1 rounded-full"><Pencil size={14} /></div>
+                    Add a habit
+                  </button>
+               )}
  
                {/* Squad Members */}
                <div>
@@ -732,10 +773,28 @@ export function SocialScreen({ habits = [], streak = 0 }: SocialScreenProps) {
                                 <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[#1a1410]" />
                             </div>
                             <div>
-                                <p className="font-semibold text-sm">{member.displayName} {userProfile?.friendCode === member.username ? "(You)" : ""}</p>
-                                <p className="text-xs text-[#ff5722]">{member.streak || 0} Day Streak</p>
+                                <p className="font-semibold text-sm">{member.displayName} {userProfile?.id === member._id ? "(You)" : ""}</p>
+                                {member.linkedHabit ? (
+                                    <p className="text-xs text-[#8a7a6e]">{member.linkedHabit.name}</p>
+                                ) : (
+                                    userProfile?.id === member._id ? (
+                                        <button onClick={() => setShowLinkHabitModal(true)} className="text-xs text-[#ff5722] font-semibold hover:underline text-left">
+                                            Add a habit to start tracking!
+                                        </button>
+                                    ) : (
+                                        <p className="text-xs text-[#8a7a6e] italic">No habit linked</p>
+                                    )
+                                )}
                             </div>
                             </div>
+                            
+                            {member.linkedHabit ? (
+                                <div className={`w-6 h-6 rounded-full flex items-center justify-center border-2 ${member.linkedHabit.completedToday ? 'bg-green-500 border-green-500' : 'border-[#8a7a6e]'}`}>
+                                    {member.linkedHabit.completedToday && <Check size={14} className="text-black" strokeWidth={3} />}
+                                </div>
+                            ) : (
+                                <div className="w-2 h-2 rounded-full bg-[#8a7a6e]/50" />
+                            )}
                         </div>
                     ))}
                  </div>
@@ -752,7 +811,13 @@ export function SocialScreen({ habits = [], streak = 0 }: SocialScreenProps) {
                   className="bg-[#2a1f19] rounded-2xl w-[90%] border border-[#3d2f26] overflow-hidden"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <button className="w-full flex items-center gap-3 p-4 hover:bg-[#3d2f26] transition-colors border-b border-[#3d2f26]">
+                  <button 
+                    onClick={() => {
+                        setShowGroupMenu(false);
+                        setShowLinkHabitModal(true);
+                    }}
+                    className="w-full flex items-center gap-3 p-4 hover:bg-[#3d2f26] transition-colors border-b border-[#3d2f26]"
+                  >
                     <Pencil size={18} className="text-[#8a7a6e]" />
                     <span className="text-sm">Change your habit</span>
                   </button>
@@ -1151,6 +1216,113 @@ export function SocialScreen({ habits = [], streak = 0 }: SocialScreenProps) {
                     </div>
                 </motion.div>
               </div>
+            )}
+          </AnimatePresence>
+
+          {/* Link Habit Modal */}
+          <AnimatePresence>
+            {showLinkHabitModal && selectedGroup && (
+                <div 
+                  className="fixed inset-0 z-[70] flex items-center justify-center px-5"
+                  onClick={() => setShowLinkHabitModal(false)}
+                >
+                  <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+                  <motion.div 
+                    initial={{ scale: 0.9, opacity: 0, y: 50 }}
+                    animate={{ scale: 1, opacity: 1, y: 0 }}
+                    exit={{ scale: 0.9, opacity: 0, y: 50 }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="relative w-full max-w-md bg-[#1a1410] rounded-3xl p-6 border border-[#3d2f26] shadow-2xl overflow-hidden"
+                  >
+                     <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-xl font-bold text-white">Select a Habit</h2>
+                        <button onClick={() => setShowLinkHabitModal(false)} className="p-2 hover:bg-[#2a1f19] rounded-lg">
+                            <X size={20} className="text-[#8a7a6e]" />
+                        </button>
+                     </div>
+
+                     {habits.length === 0 ? (
+                         <div className="text-center py-8">
+                             <div className="w-16 h-16 bg-[#ff5722]/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                                 <Plus size={32} className="text-[#ff5722]" />
+                             </div>
+                             <h3 className="text-lg font-semibold mb-2">No habits yet</h3>
+                             <p className="text-[#8a7a6e] text-sm mb-6">Create a habit first to link it to this squad.</p>
+                             <button
+                                onClick={() => {
+                                    setShowLinkHabitModal(false);
+                                    setShowGroupDetails(false); // Close squad details to go to create habit
+                                    onNavigate("create");
+                                }}
+                                className="w-full bg-[#ff5722] hover:bg-[#ff6b3d] text-white py-3 rounded-xl font-semibold transition-colors"
+                             >
+                                Create Habit
+                             </button>
+                         </div>
+                     ) : (
+                         <div className="flex flex-col">
+                             <div className="space-y-3 max-h-[40vh] overflow-y-auto scrollbar-hide mb-4">
+                                 {habits.map((habit) => (
+                                     <button
+                                        key={habit.id}
+                                        onClick={() => setSelectedHabitId(habit.id)}
+                                        className={`w-full p-4 rounded-xl border transition-all text-left flex items-center justify-between group 
+                                            ${selectedHabitId === habit.id 
+                                                ? "bg-[#3d2f26] border-[#ff5722]" 
+                                                : "bg-[#2a1f19] border-[#3d2f26] hover:border-[#ff5722] hover:bg-[#3d2f26]"}`}
+                                      >
+                                         <div>
+                                             <p className="font-semibold text-white">{habit.name}</p>
+                                             <p className="text-xs text-[#8a7a6e]">{habit.goal} days goal</p>
+                                         </div>
+                                         <div className={`w-6 h-6 rounded-full flex items-center justify-center border-2 
+                                             ${selectedHabitId === habit.id 
+                                                 ? "border-[#ff5722] bg-[#ff5722]" 
+                                                 : "border-[#8a7a6e] group-hover:border-[#ff5722]"}`}>
+                                              {selectedHabitId === habit.id && <Check size={14} className="text-white" strokeWidth={3} />}
+                                         </div>
+                                      </button>
+                                 ))}
+                             </div>
+                             
+                             <div className="space-y-3">
+                                <button
+                                    disabled={!selectedHabitId}
+                                    onClick={async () => {
+                                        if (!selectedHabitId) return;
+                                        try {
+                                            await api.post("/groups/link-habit", {
+                                                groupId: selectedGroup._id,
+                                                habitId: selectedHabitId
+                                            });
+                                            alert("Habit linked successfully!");
+                                            setShowLinkHabitModal(false);
+                                            setSelectedHabitId(null);
+                                        } catch (err: any) {
+                                            alert(err.response?.data?.message || "Failed to link habit");
+                                        }
+                                    }}
+                                    className="w-full bg-[#ff5722] hover:bg-[#ff6b3d] disabled:opacity-50 disabled:cursor-not-allowed text-white py-3 rounded-xl font-semibold transition-colors shadow-lg shadow-orange-900/20"
+                                >
+                                    Link Selected Habit
+                                </button>
+
+                                <button
+                                    onClick={() => {
+                                        setShowLinkHabitModal(false);
+                                        setShowGroupDetails(false);
+                                        onNavigate("create");
+                                    }}
+                                    className="w-full bg-[#2a1f19] hover:bg-[#3d2f26] border border-[#ff5722]/30 text-[#ff5722] py-3 rounded-xl font-semibold transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <Plus size={18} />
+                                    Create New Habit
+                                </button>
+                             </div>
+                         </div>
+                     )}
+                  </motion.div>
+                </div>
             )}
           </AnimatePresence>
 

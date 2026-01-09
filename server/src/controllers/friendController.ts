@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import User from "../models/User";
+import Streak from "../models/Streak";
 
 // @desc    Search for a user by Friend Code
 // @route   GET /api/friends/search?code=HABIT-XXXXXX
@@ -15,7 +16,7 @@ export const searchUser = async (req: any, res: Response, next: NextFunction): P
 
     const user = await User.findOne({ 
         friendCode: code.toUpperCase() 
-    }).select("displayName username friendCode _id streak lastCompletedDate");
+    }).select("displayName username friendCode _id"); // Removed stale streak/lastCompletedDate
 
     if (!user) {
        res.status(404).json({ message: "User not found" });
@@ -28,7 +29,19 @@ export const searchUser = async (req: any, res: Response, next: NextFunction): P
         return;
     }
 
-    res.json(user);
+    // Fetch real streak
+    const streakDoc = await Streak.findOne({ user: user._id });
+    const streakCount = streakDoc ? streakDoc.streakCount : 0;
+    const lastCompletedDate = streakDoc ? streakDoc.lastCompletedDate : null;
+
+    res.json({
+        _id: user._id,
+        displayName: user.displayName,
+        username: user.username,
+        friendCode: user.friendCode,
+        streak: streakCount,
+        lastCompletedDate
+    });
   } catch (error) {
     next(error); 
   }
@@ -62,6 +75,11 @@ export const addFriend = async (req: any, res: Response, next: NextFunction): Pr
         await currentUser.save();
         await friendToAdd.save();
 
+        // Fetch real streak for the added friend
+        const streakDoc = await Streak.findOne({ user: friendToAdd._id });
+        const streakCount = streakDoc ? streakDoc.streakCount : 0;
+        const lastCompletedDate = streakDoc ? streakDoc.lastCompletedDate : null;
+
         res.json({ 
             message: "Friend added successfully",
             friend: {
@@ -69,8 +87,8 @@ export const addFriend = async (req: any, res: Response, next: NextFunction): Pr
                 displayName: friendToAdd.displayName,
                 username: friendToAdd.username,
                 friendCode: friendToAdd.friendCode,
-                streak: friendToAdd.streak,
-                lastCompletedDate: friendToAdd.lastCompletedDate
+                streak: streakCount,
+                lastCompletedDate: lastCompletedDate
             }
         });
     } catch (error) {
@@ -111,14 +129,42 @@ export const removeFriend = async (req: any, res: Response, next: NextFunction):
 // @access  Private
 export const getFriends = async (req: any, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const user = await User.findById(req.user._id).populate("friends", "displayName username friendCode streak lastCompletedDate");
+        // First populate user friends data (basic info)
+        const user = await User.findById(req.user._id).populate("friends", "displayName username friendCode");
         
         if (!user) {
             res.status(404).json({ message: "User not found" });
             return;
         }
 
-        res.json(user.friends);
+        const friendsList: any[] = user.friends;
+        
+        // Extract friend IDs
+        const friendIds = friendsList.map(f => f._id);
+
+        // Fetch Streaks for all friends
+        const streakDocs = await Streak.find({ user: { $in: friendIds } });
+
+        // Map streaks to a dictionary for O(1) lookup
+        const streakMap: { [key: string]: { streakCount: number, lastCompletedDate: any } } = {};
+        streakDocs.forEach(doc => {
+            streakMap[doc.user.toString()] = {
+                streakCount: doc.streakCount,
+                lastCompletedDate: doc.lastCompletedDate
+            };
+        });
+
+        // Merge data
+        const friendsWithStreak = friendsList.map(f => ({
+            _id: f._id,
+            displayName: f.displayName,
+            username: f.username,
+            friendCode: f.friendCode,
+            streak: streakMap[f._id.toString()] ? streakMap[f._id.toString()].streakCount : 0,
+            lastCompletedDate: streakMap[f._id.toString()] ? streakMap[f._id.toString()].lastCompletedDate : null
+        }));
+
+        res.json(friendsWithStreak);
     } catch (error) {
         next(error);
     }

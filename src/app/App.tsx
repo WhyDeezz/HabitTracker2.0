@@ -18,7 +18,7 @@ interface Habit {
   microIdentity: string | null; // Mapped from backend 'microIdentity'
   habit_type: string;
   goal: number;
-  active_days: string[];
+  activeDays: number[]; // Matches backend activeDays [1..7]
   created_at: string;
   completions: string[]; // List of ISO date strings (YYYY-MM-DD)
   visibility?: 'public' | 'private';
@@ -101,9 +101,22 @@ export default function App() {
           },
         });
         const allHabits: Habit[] = await res.json();
-        const today = new Date().toISOString().slice(0, 10);
+        // FIX: Use local date parts to avoid UTC shift problems
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const today = `${year}-${month}-${day}`;
+        
+        // Filter by Active Days (1=Mon ... 7=Sun)
+        const currentDayIndex = now.getDay(); // 0 (Sun) to 6 (Sat)
+        const todayNum = currentDayIndex === 0 ? 7 : currentDayIndex;
 
-        const normalized: UIHabit[] = allHabits.map((h) => ({
+        const todaysHabits = allHabits.filter(h => 
+            h.activeDays && h.activeDays.includes(todayNum)
+        );
+
+        const normalized: UIHabit[] = todaysHabits.map((h) => ({
           id: h._id, // MongoDB uses _id
           name: h.name,
           micro_identity: h.microIdentity,
@@ -272,7 +285,13 @@ export default function App() {
      COMPLETE HABIT (TODAY)
   ---------------------------- */
   const handleCompleteHabit = async (habitId: string): Promise<void> => {
-    const today: string = new Date().toISOString().slice(0, 10);
+    // FIX: Use local date parts to avoid UTC shift problems (toISOString uses UTC)
+    // This aligns better with "Today" for the user's device time
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const today = `${year}-${month}-${day}`;
     
     // Optimistic update
     setHabits(prev => 
