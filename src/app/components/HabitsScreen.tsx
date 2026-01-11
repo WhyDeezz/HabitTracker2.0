@@ -1,4 +1,4 @@
-import { Flame, Menu, Plus } from "lucide-react";
+import { Flame, Menu, Plus, Check } from "lucide-react";
 import { motion } from "motion/react";
 import{ HabitCard } from "./HabitCard";
 import { useMemo, useState } from "react";
@@ -46,6 +46,8 @@ interface HabitsScreenProps {
   onDeleteHabit: (id: string) => void;
   onNavigate: (screen: "habits" | "create" | "profile" | "social") => void;
   updateSession?: (updatedUser: any) => void;
+  streak?: number;
+  lastCompletedDate?: string | Date | null;
 }
 
 export function HabitsScreen({
@@ -55,6 +57,8 @@ export function HabitsScreen({
   onDeleteHabit,
   onNavigate,
   updateSession,
+  streak = 0,
+  lastCompletedDate,
 }: HabitsScreenProps) {
   // Select a random quote only once on mount
   const currentQuote = useMemo(() => {
@@ -62,7 +66,7 @@ export function HabitsScreen({
     return MENTAL_MODELS[randomIndex];
   }, []);
 
-  const streakDays = 12; // replace later with real streak logic
+  const streakDays = streak;
   const hasIncompleteHabits = habits.some((h) => !h.completed_today);
   const remainingCount = habits.filter((h) => !h.completed_today).length;
 
@@ -130,6 +134,31 @@ export function HabitsScreen({
             const startOfWeek = new Date(current);
             startOfWeek.setDate(current.getDate() - currentDay); // Assuming Sunday start
 
+            // Calculate which days should have checkmarks based on streak
+            // Use local dates to match user's perception of "today"
+            const completedDates = new Set<string>();
+            if (streak > 0 && lastCompletedDate) {
+              // Convert UTC timestamp to local date
+              const lastCompletedUTC = new Date(lastCompletedDate);
+              const lastCompletedLocal = new Date(
+                lastCompletedUTC.getFullYear(),
+                lastCompletedUTC.getMonth(),
+                lastCompletedUTC.getDate()
+              );
+              
+              // Add dates going back from lastCompletedDate (in local timezone)
+              for (let i = 0; i < streak; i++) {
+                const completedDay = new Date(lastCompletedLocal);
+                completedDay.setDate(lastCompletedLocal.getDate() - i);
+                // Format as YYYY-MM-DD in local timezone
+                const year = completedDay.getFullYear();
+                const month = String(completedDay.getMonth() + 1).padStart(2, '0');
+                const day = String(completedDay.getDate()).padStart(2, '0');
+                const dateStr = `${year}-${month}-${day}`;
+                completedDates.add(dateStr);
+              }
+            }
+
             return Array.from({ length: 7 }).map((_, i) => {
               const date = new Date(startOfWeek);
               date.setDate(startOfWeek.getDate() + i);
@@ -137,20 +166,32 @@ export function HabitsScreen({
                             date.getMonth() === current.getMonth();
               const dateNum = date.getDate();
               const dayInitial = date.toLocaleDateString('en-US', { weekday: 'narrow' });
-
+              
+              // Check if this day is in the completed dates set (using local date)
+              const year = date.getFullYear();
+              const month = String(date.getMonth() + 1).padStart(2, '0');
+              const day = String(date.getDate()).padStart(2, '0');
+              const dateStr = `${year}-${month}-${day}`;
+              const isCompleted = completedDates.has(dateStr);
+              
               return (
                 <div key={i} className="flex flex-col items-center gap-2">
                   <span className={`text-xs font-medium ${isToday ? 'text-orange-500' : 'text-[#8a7a6e]'}`}>
                     {dayInitial}
                   </span>
                   <div 
-                    className={`w-10 h-10 flex items-center justify-center rounded-full text-sm font-semibold transition-all
+                    className={`w-8 h-8 flex items-center justify-center rounded-full text-sm font-semibold transition-all relative
                       ${isToday 
                         ? 'bg-orange-500 text-white shadow-lg shadow-orange-900/40' 
                         : 'bg-[#2a1f19] text-[#b5a79a] border border-[#3d2f26]'
                       }`}
                   >
                     {dateNum}
+                    {isCompleted && (
+                      <div className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center shadow-md border border-[#1a1410]">
+                        <Check size={10} className="text-white" strokeWidth={3} />
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -237,6 +278,7 @@ export function HabitsScreen({
           isModal={true}
           onClose={() => setShowProfileModal(false)}
           updateSession={updateSession}
+          streak={streak}
         />
       )}
     </div>

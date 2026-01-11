@@ -16,6 +16,7 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
   const [reminderTime, setReminderTime] = useState('09:00');
   const [visibility, setVisibility] = useState<'public' | 'private'>('public');
   const [duration, setDuration] = useState<number>(21);
+  const [showInfo, setShowInfo] = useState(false);
   const timeInputRef = useRef<HTMLInputElement>(null);
 
   const days = [
@@ -73,12 +74,14 @@ export function CreateHabitScreen({ onBack, onCreate }: CreateHabitScreenProps) 
               Habit Type
             </label>
             <div className="group relative">
-              <Info 
-                size={16} 
-                className="text-[#8a7a6e] hover:text-[#ff5722] cursor-help transition-colors" 
-              />
+              <div onClick={() => setShowInfo(!showInfo)} className="cursor-pointer">
+                <Info 
+                  size={16} 
+                  className={`text-[#8a7a6e] hover:text-[#ff5722] transition-colors ${showInfo ? 'text-[#ff5722]' : ''}`} 
+                />
+              </div>
               {/* Tooltip */}
-              <div className="invisible group-hover:visible opacity-0 group-hover:opacity-100 absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 bg-[#1a1410] border border-[#3d2f26] rounded-xl p-3 shadow-lg transition-all duration-200 z-10">
+              <div className={`absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 bg-[#1a1410] border border-[#3d2f26] rounded-xl p-3 shadow-lg transition-all duration-200 z-10 ${showInfo ? 'visible opacity-100' : 'invisible opacity-0 group-hover:visible group-hover:opacity-100'}`}>
                 <div className="space-y-2 text-xs">
                   <div>
                     <span className="font-semibold text-[#ff5722]">Build:</span>
